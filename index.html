@@ -203,6 +203,63 @@ footer .coords{margin-left:auto;display:flex;gap:18px}
 .manual .m-key{background:#0b1420;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 7px;font-size:12px;font-family:inherit}
 .manual .m-print{margin:14px 0}
 
+/* ---------- Stepper + Accordion + 2-Col Grid ---------- */
+.stepper{display:flex;gap:4px;padding:10px 10px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;background:var(--panel2)}
+.step-btn{
+  flex:1;padding:8px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:11px;font-weight:600;
+  background:#0b1420;border:1px solid var(--line);color:var(--muted);transition:.15s;text-align:center;
+}
+.step-btn.on{background:rgba(240,180,68,.12);border-color:var(--amber);color:var(--amber)}
+.step-btn:hover:not(.on){border-color:var(--blue)}
+.step-num{display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--text);font-size:10px;line-height:18px;text-align:center;margin-right:3px}
+.step-btn.on .step-num{background:var(--amber);color:#0d1520}
+.step-panel{display:none;padding:10px}
+.step-panel.on{display:block}
+
+.acc{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.acc-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;user-select:none;font-size:12.5px;font-weight:600;color:var(--text)}
+.acc-head:hover{background:#0f1a2b}
+.acc-chev{color:var(--muted);font-size:11px;transition:transform .2s}
+.acc[data-open="0"] .acc-chev{transform:rotate(-90deg)}
+.acc[data-open="0"] .acc-body{display:none}
+.acc-body{padding:4px 12px 12px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.req-grid{display:flex;flex-direction:column;gap:5px}
+.req-item{border-radius:9px;border:1px solid transparent;transition:.15s}
+.req-item.open{background:#0d1826;border-color:var(--line)}
+.req-sum{min-width:22px;text-align:center;font-size:12px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums}
+.req-tog{width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:#0b1420;color:var(--muted);
+  cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:.18s;flex-shrink:0}
+.req.on .req-tog{color:var(--amber)}
+.req-tog:hover{border-color:var(--blue);color:var(--text)}
+.req-item.open .req-tog{transform:rotate(180deg);border-color:var(--blue);color:var(--blue)}
+/* ---- expandable per-floor + size detail ---- */
+.req-detail{display:none;padding:9px 11px 11px;border-top:1px dashed var(--line)}
+.req-item.open .req-detail{display:block;animation:rdIn .16s ease}
+@keyframes rdIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.rd-title{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 7px}
+.rd-floor{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.rd-floor .fl-nm{flex:1;font-size:11.5px;color:var(--text)}
+.rd-floor .fl-nm span{color:var(--muted);font-size:10px;margin-left:3px}
+.rd-ctr{display:flex;align-items:center;gap:0;flex-shrink:0}
+.rd-ctr button{width:23px;height:23px;border:1px solid var(--line);background:#0b1420;color:var(--text);cursor:pointer;font-size:13px;line-height:1;padding:0}
+.rd-ctr button:first-child{border-radius:6px 0 0 6px}
+.rd-ctr button:last-child{border-radius:0 6px 6px 0}
+.rd-ctr button:hover{background:var(--blue);color:#06111f;border-color:var(--blue)}
+.rd-ctr .v{min-width:28px;height:23px;line-height:22px;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:#0b1420;color:var(--amber);font-size:11.5px;font-variant-numeric:tabular-nums}
+.rd-size{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rd-size label{font-size:11px;color:var(--muted)}
+.sz-in{width:48px;height:25px;border:1px solid var(--line);border-radius:6px;background:#0b1420;color:var(--text);
+  text-align:center;font-size:11.5px;font-family:inherit;-moz-appearance:textfield}
+.sz-in::-webkit-outer-spin-button,.sz-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.sz-in:focus{outline:none;border-color:var(--blue)}
+.sz-x{color:var(--muted);font-size:12px}
+.sz-auto{font-size:10px;padding:4px 9px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-family:inherit}
+.sz-auto:hover{color:var(--text);border-color:var(--blue)}
+.sz-hint{font-size:9.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+
 /* ---------- Requirements Checklist + Floor Plan ---------- */
 .board-tabs{
   position:absolute;top:10px;left:14px;z-index:14;display:flex;align-items:center;gap:6px;
@@ -238,8 +295,7 @@ footer .coords{margin-left:auto;display:flex;gap:18px}
 .ctr button:hover{background:var(--blue);color:#06111f;border-color:var(--blue)}
 .ctr .v{min-width:26px;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);height:24px;line-height:23px;background:#0b1420;font-variant-numeric:tabular-nums;color:var(--amber);font-size:12px}
 .ctr select{height:24px;padding:0 5px;font-size:11px;border-radius:7px;width:auto;background:#0b1420;border:1px solid var(--line);color:var(--muted)}
-.floor-pick{height:24px!important;padding:0 4px!important;font-size:10.5px!important;border-radius:6px!important;width:46px!important;background:#0b1420!important;border:1px solid var(--line)!important;color:var(--amber)!important;margin-left:4px;flex:0 0 auto;cursor:pointer}
-.floor-pick:focus{border-color:var(--blue)!important}
+.fq-lab{font-size:9.5px;color:var(--amber);font-weight:700;margin-left:6px;min-width:10px}
 .floor-seg{display:flex;gap:6px;margin-top:10px}
 .floor-seg button{
   flex:1;padding:8px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px;
@@ -748,145 +804,120 @@ input[type=range]::-moz-range-thumb{
 
   <!-- ============ RIGHT : CONFIG ============ -->
   <aside class="right">
-    <div class="card">
-      <h3>Scale · اسکیل</h3>
-      <div class="seg" id="segScale">
-        <button data-v="100" class="on">1 : 100</button>
-        <button data-v="50">1 : 50</button>
-      </div>
+    <!-- ======= HORIZONTAL STEPPER ======= -->
+    <div class="stepper">
+      <button class="step-btn on" data-step="1"><span class="step-num">1</span> Plot Size</button>
+      <button class="step-btn" data-step="2"><span class="step-num">2</span> Requirements</button>
+      <button class="step-btn" data-step="3"><span class="step-num">3</span> Rules & Stats</button>
     </div>
 
-    <div class="card">
-      <h3>Units · یونٹ</h3>
-      <div class="seg" id="segUnit">
-        <button data-v="ft" class="on">Feet</button>
-        <button data-v="m">Meters</button>
-      </div>
-    </div>
+    <!-- ======= STEP 1: PLOT SIZE ======= -->
+    <div class="step-panel on" data-step="1">
 
-    <!-- ============ PART 2 : IRREGULAR PLOT MATH ENGINE ============ -->
-    <div class="card">
-      <h3>Irregular Plot Math Engine</h3>
-      <div class="urdu" style="font-size:12px;color:var(--muted);margin:-4px 0 10px">ٹیڑھے پلاٹ کا رقبہ — چار اطراف اور وتر</div>
-
-      <div class="field"><label>Side A (Front)
-        <span class="tip" data-tip="Triangulation: diagonal E splits the plot into two triangles — Triangle 1 (A, D, E) and Triangle 2 (B, C, E). Each triangle's area is found with Heron's Formula: √[s(s−a)(s−b)(s−c)].">i</span></label>
-        <input type="number" min="0" step="any" id="eA" placeholder="Enter Side A...">
-      </div>
-      <div class="field"><label>Side B (Right)
-        <span class="tip" data-tip="Second side of the plot, moving clockwise. Used in Triangle 2 (B, C, E) with Heron's Formula.">i</span></label>
-        <input type="number" min="0" step="any" id="eB" placeholder="Enter Side B...">
-      </div>
-      <div class="field"><label>Side C (Back)
-        <span class="tip" data-tip="Third side (back of plot). Used in Triangle 2 (B, C, E) with Heron's Formula.">i</span></label>
-        <input type="number" min="0" step="any" id="eC" placeholder="Enter Side C...">
-      </div>
-      <div class="field"><label>Side D (Left)
-        <span class="tip" data-tip="Fourth side of the plot. Used in Triangle 1 (A, D, E) with Heron's Formula.">i</span></label>
-        <input type="number" min="0" step="any" id="eD" placeholder="Enter Side D...">
-      </div>
-      <div class="field"><label>Diagonal E (وتر)
-        <span class="tip" data-tip="Corner-to-opposite-corner measurement. Providing it makes the calculation EXACT via triangulation. Without it, only an estimate is possible.">i</span></label>
-        <input type="number" min="0" step="any" id="eE" placeholder="Optional — for exact result...">
-      </div>
-
-      <div class="result-box">
-        <div class="big" id="engOut">—</div>
-        <div class="sm" id="engOutSub">Total Area</div>
-      </div>
-      <div class="warn-note" id="engWarn">⚠ Estimation only. For professional accuracy, input a diagonal or coordinates.</div>
-    </div>
-
-    <!-- ============ PART 2 : PAKISTANI REVENUE UNIT CONVERTER ============ -->
-    <div class="card">
-      <h3>Pakistani Unit Converter</h3>
-      <div class="src-tag" style="margin-bottom:8px">Source: <b id="pkSrc">—</b></div>
-
-      <div class="field"><label>Region · علاقہ</label>
-        <div class="seg" id="regionSeg">
-          <button data-v="karachi" class="on">🌆 Karachi (Gaz)</button>
-          <button data-v="punjab">🏛 Punjab (Marla)</button>
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>📐 Scale & Units · اسکیل</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div style="display:flex;gap:8px">
+            <div class="seg" id="segScale" style="flex:1"><button data-v="100" class="on">1:100</button><button data-v="50">1:50</button></div>
+            <div class="seg" id="segUnit" style="flex:1"><button data-v="ft" class="on">Feet</button><button data-v="m">Meters</button></div>
+          </div>
         </div>
       </div>
 
-      <div class="field" id="marlaStdWrap" style="display:none"><label>Marla Standard · مرلہ معیار</label>
-        <select id="marlaStd">
-          <option value="272.25" selected>Rural / Traditional = 272.25 sq ft</option>
-          <option value="225">Lahore / Urban = 225 sq ft</option>
-          <option value="250">Commercial / Society = 250 sq ft</option>
-        </select>
-      </div>
-
-      <!-- Karachi order: Gaz first & highlighted -->
-      <div class="pk-line pk-gaz-row"><span class="k">Sq. Yards · گز</span><span class="v" id="pkGaz" style="color:var(--amber);font-size:15px">—</span></div>
-      <div class="pk-line"><span class="k">Square Feet</span><span class="v" id="pkSqft">—</span></div>
-      <div class="pk-line pk-marla-row"><span class="k">Marla (مرلہ)</span><span class="v" id="pkMarla">—</span></div>
-      <div class="pk-line pk-marla-row"><span class="k">Kanal (کنال)</span><span class="v" id="pkKanal">—</span></div>
-      <div class="pk-line pk-marla-row"><span class="k">Sarsahi (سرساہی)</span><span class="v" id="pkSarsahi">—</span></div>
-
-      <div class="pk-total" id="pkTotal">Enter measurements above</div>
-    </div>
-
-    <!-- ============ REQUIREMENTS CHECKLIST + FLOOR PLAN ============ -->
-    <div class="card">
-      <h3>Requirements Checklist</h3>
-      <div class="urdu" style="font-size:12px;color:var(--muted);margin:-4px 0 8px">جو چاہیے ٹک کریں — تعداد + / − سے</div>
-      <div id="reqList"></div>
-
-      <div style="font-size:11px;color:var(--muted);letter-spacing:.6px;margin-top:10px">Number of Floors · منزلیں</div>
-      <div class="floor-seg" id="floorSeg">
-        <button data-v="1" class="on">Single</button>
-        <button data-v="2">Double</button>
-        <button data-v="3">Triple</button>
-      </div>
-
-      <button class="btn-gen" id="btnGen" disabled>⚡ Generate Floor Plan · نقشہ بنائیں</button>
-      <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Pehle plot measurements bharein (Math Engine), phir yeh button chalega. Naqsha "Floor Plan" tab mein banega.</div>
-    </div>
-
-    <!-- ============ PART 3 : REGULATORY SETBACK ENGINE ============ -->
-    <div class="card">
-      <h3>Development Authority Rules</h3>
-      <div class="urdu" style="font-size:12px;color:var(--muted);margin:-4px 0 10px">قانونی حدِ تعمیر — سیٹ بیک انجن</div>
-
-      <div class="field"><label>Authority · ادارہ</label>
-        <select id="authority">
-          <option value="none" selected>— Select Authority —</option>
-          <option value="LDA">LDA (Lahore)</option>
-          <option value="CDA">CDA (Islamabad)</option>
-          <option value="RUDA">RUDA (Ravi Urban)</option>
-          <option value="SBCA">SBCA (Karachi) — گز basis</option>
-          <option value="PDA">PDA (Peshawar)</option>
-          <option value="QDA">QDA (Quetta)</option>
-        </select>
-      </div>
-
-      <div class="rule-note" id="ruleNote">Select an authority — setback lines will be drawn on the plot automatically based on its Marla size.</div>
-
-      <div id="cdaPresets" style="display:none">
-        <div class="preset-line"><span class="k">8 Marla preset</span><span class="v">30 × 60 ft</span></div>
-        <div class="preset-line"><span class="k">1 Kanal preset</span><span class="v">50 × 90 ft</span></div>
-        <div class="switch-row">
-          <span class="k">Basement planned? · بیسمنٹ</span>
-          <div class="sw2" id="swBasement" role="switch" aria-checked="false" tabindex="0"></div>
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>🧮 Plot Measurements · پیمائش</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div class="grid2">
+            <div class="field"><label>A · Front</label><input type="number" min="0" step="any" id="eA" placeholder="Front..."></div>
+            <div class="field"><label>B · Right</label><input type="number" min="0" step="any" id="eB" placeholder="Right..."></div>
+            <div class="field"><label>C · Back</label><input type="number" min="0" step="any" id="eC" placeholder="Back..."></div>
+            <div class="field"><label>D · Left</label><input type="number" min="0" step="any" id="eD" placeholder="Left..."></div>
+          </div>
+          <div class="field"><label>Diagonal E (وتر) <span class="tip" data-tip="Heron's Formula: diagonal se do triangle ban ke bilkul sahi area milta hai.">i</span></label>
+            <input type="number" min="0" step="any" id="eE" placeholder="Optional — exact result...">
+          </div>
+          <div class="result-box"><div class="big" id="engOut">—</div><div class="sm" id="engOutSub">Total Area</div></div>
+          <div class="warn-note" id="engWarn">⚠ Estimation only. Diagonal dein to exact result.</div>
         </div>
       </div>
 
-      <div class="badge" id="cdaBadge"><span class="pulse"></span> CDA Compliant Basement Check Required</div>
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>🇵🇰 Unit Converter · یونٹ</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div class="seg" id="regionSeg" style="margin-bottom:8px"><button data-v="karachi" class="on">🌆 Karachi (Gaz)</button><button data-v="punjab">🏛 Punjab (Marla)</button></div>
+          <div class="field" id="marlaStdWrap" style="display:none"><label>Marla Standard</label>
+            <select id="marlaStd"><option value="272.25" selected>Rural 272.25</option><option value="225">Lahore 225</option><option value="250">Society 250</option></select>
+          </div>
+          <div class="src-tag">Source: <b id="pkSrc">—</b></div>
+          <div class="pk-line pk-gaz-row"><span class="k">Sq. Yards · گز</span><span class="v" id="pkGaz" style="color:var(--amber);font-size:15px">—</span></div>
+          <div class="pk-line"><span class="k">Square Feet</span><span class="v" id="pkSqft">—</span></div>
+          <div class="pk-line pk-marla-row"><span class="k">Marla</span><span class="v" id="pkMarla">—</span></div>
+          <div class="pk-line pk-marla-row"><span class="k">Kanal</span><span class="v" id="pkKanal">—</span></div>
+          <div class="pk-line pk-marla-row"><span class="k">Sarsahi</span><span class="v" id="pkSarsahi">—</span></div>
+          <div class="pk-total" id="pkTotal">Enter measurements above</div>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Drawing Stats · اعداد و شمار</h3>
-      <div class="stat"><span class="k">Lines drawn</span><span class="v" id="stLines">0</span></div>
-      <div class="stat"><span class="k">Total length</span><span class="v" id="stLen">0</span></div>
-      <div class="stat"><span class="k">Grid cell</span><span class="v" id="stCell">—</span></div>
-      <div class="stat"><span class="k">Last area</span><span class="v green" id="stArea">—</span></div>
+    <!-- ======= STEP 2: REQUIREMENTS ======= -->
+    <div class="step-panel" data-step="2">
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>✅ Requirements · ضروریات</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div class="urdu" style="font-size:11px;color:var(--muted);margin-bottom:8px">ٹک کریں — G=گراؤنڈ، 1=پہلی منزل کی تعداد الگ سے</div>
+          <div class="req-grid" id="reqList"></div>
+        </div>
+      </div>
+
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>🏢 Floors & Generate · منزلیں</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div class="floor-seg" id="floorSeg">
+            <button data-v="1" class="on">Single</button><button data-v="2">Double</button><button data-v="3">Triple</button>
+          </div>
+          <button class="btn-gen" id="btnGen" disabled>⚡ Generate Floor Plan · نقشہ بنائیں</button>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Snapping</h3>
-      <div class="stat"><span class="k">Grid snap</span><span class="v" style="color:var(--green)">ON ●</span></div>
-      <div class="stat"><span class="k">Snap step</span><span class="v" id="stSnap">—</span></div>
+    <!-- ======= STEP 3: RULES & STATS ======= -->
+    <div class="step-panel" data-step="3">
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>🏛 Authority Rules · سیٹ بیک</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div class="field"><label>Authority · ادارہ</label>
+            <select id="authority">
+              <option value="none" selected>— Select Authority —</option>
+              <option value="LDA">LDA (Lahore)</option>
+              <option value="CDA">CDA (Islamabad)</option>
+              <option value="RUDA">RUDA (Ravi Urban)</option>
+              <option value="SBCA">SBCA (Karachi) — گز</option>
+              <option value="PDA">PDA (Peshawar)</option>
+              <option value="QDA">QDA (Quetta)</option>
+            </select>
+          </div>
+          <div class="rule-note" id="ruleNote">Authority chunein — setback lines khud ban jayengi.</div>
+          <div id="cdaPresets" style="display:none">
+            <div class="preset-line"><span class="k">8 Marla</span><span class="v">30×60 ft</span></div>
+            <div class="preset-line"><span class="k">1 Kanal</span><span class="v">50×90 ft</span></div>
+            <div class="switch-row"><span class="k">Basement? · بیسمنٹ</span><div class="sw2" id="swBasement" role="switch" aria-checked="false" tabindex="0"></div></div>
+          </div>
+          <div class="badge" id="cdaBadge"><span class="pulse"></span> CDA Basement Check Required</div>
+        </div>
+      </div>
+
+      <div class="acc" data-open="1">
+        <div class="acc-head"><span>📊 Drawing Stats · شمار</span><span class="acc-chev">▾</span></div>
+        <div class="acc-body">
+          <div class="grid2">
+            <div class="stat"><span class="k">Lines</span><span class="v" id="stLines">0</span></div>
+            <div class="stat"><span class="k">Length</span><span class="v" id="stLen">0</span></div>
+            <div class="stat"><span class="k">Grid cell</span><span class="v" id="stCell">—</span></div>
+            <div class="stat"><span class="k">Snap</span><span class="v" id="stSnap">—</span></div>
+          </div>
+          <div class="stat"><span class="k">Last area</span><span class="v green" id="stArea">—</span></div>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -1509,7 +1540,7 @@ $('regionSeg')?.querySelectorAll('button').forEach(b=>b.addEventListener('click'
   $('regionSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); pkRegion=b.dataset.v;
   document.querySelector('.card').classList; // noop
-  const card = $('pkGaz').closest('.card');
+  const card = $('pkGaz').closest('.acc')||$('pkGaz').parentElement;
   card.classList.toggle('karachi-mode', pkRegion==='karachi');
   $('marlaStdWrap').style.display = pkRegion==='punjab' ? 'block' : 'none';
   renderConverter();
@@ -2254,6 +2285,42 @@ function populateModel(){
     g.add(wall);
   });
 
+  /* FLOOR PLAN ROOMS → 3D colored blocks + partition walls */
+  if(floorPlan.floors){
+    const ROOM3D_COL={open:0x4ade80,porch:0xf0b444,bed:0x5aa2ff,bath:0x7dd3fc,kitchen:0xfb923c,draw:0xc084fc,lounge:0x6d9be8,store:0x94a3b8,laundry:0x7dd3fc,stair:0xf0b444,terrace:0x4ade80};
+    const A=engInput('eA'),B=engInput('eB'),C=engInput('eC'),D=engInput('eD');
+    let fpW,fpH;
+    if(A&&B&&C&&D){fpW=(A+C)/2;fpH=(B+D)/2;} else {const s=Math.sqrt(activeArea.sqft||900);fpW=s;fpH=s;}
+    floorPlan.floors.forEach((fl,fi)=>{
+      const yBase = fi * WALL_H_FT;
+      fl.placed.forEach(r=>{
+        /* room floor slab (thin colored box) */
+        const col=ROOM3D_COL[r.id]||0x5aa2ff;
+        const rm=new T.Mesh(new T.BoxGeometry(r.w,0.3,r.h),
+          new T.MeshStandardMaterial({color:col, transparent:true, opacity:0.45, roughness:.9}));
+        rm.position.set(r.x+r.w/2-fpW/2, yBase+0.2, r.y+r.h/2-fpH/2);
+        rm.receiveShadow=true; g.add(rm);
+        /* thin partition walls around each room */
+        const partMat=new T.MeshStandardMaterial({color:0xb0bfd4,roughness:.9});
+        const edges=[[r.x,r.y,r.x+r.w,r.y],[r.x+r.w,r.y,r.x+r.w,r.y+r.h],[r.x+r.w,r.y+r.h,r.x,r.y+r.h],[r.x,r.y+r.h,r.x,r.y]];
+        edges.forEach(([ax,ay,bx,by])=>{
+          const wx=bx-ax,wy=by-ay,wl=Math.hypot(wx,wy);
+          if(wl<1)return;
+          const pw=new T.Mesh(new T.BoxGeometry(wl,WALL_H_FT,0.4),partMat);
+          pw.position.set((ax+bx)/2-fpW/2, yBase+WALL_H_FT/2, (ay+by)/2-fpH/2);
+          pw.rotation.y=-Math.atan2(wy,wx);
+          pw.castShadow=true; pw.receiveShadow=true; g.add(pw);
+        });
+      });
+      /* floor slab between stories */
+      if(fi>0){
+        const slab=new T.Mesh(new T.BoxGeometry(fpW,0.5,fpH),
+          new T.MeshStandardMaterial({color:0x2a3346,roughness:1}));
+        slab.position.set(0,yBase,0); slab.receiveShadow=true; g.add(slab);
+      }
+    });
+  }
+
   /* neighbour blocks (from survey) as grey masses */
   if(plot){
     neighbourBlocks(plot).forEach(b=>{
@@ -2783,38 +2850,97 @@ const REQS = [
 ];
 const reqState = {};
 const floorPlan = { floors:null, view:0, count:1 };
+const FLOOR_NAMES=[['Ground','گراؤنڈ'],['1st Floor','پہلی منزل'],['2nd Floor','دوسری منزل']];
 
 (function buildReqRows(){
-  const box=$('reqList'); if(!box) return;
+  const box=$('reqList'); if(!box) return; box.innerHTML='';
   REQS.forEach(r=>{
-    reqState[r.id]={on:['bed','bath','kitchen','lounge','porch','open'].includes(r.id), count:r.def||1, opt:r.def, floor:0};
-    const row=document.createElement('div');
-    row.className='req'+(reqState[r.id].on?' on':'');
-    let ctrl='';
-    if(r.type==='count') ctrl=`<div class="ctr"><button data-a="-">−</button><span class="v">${r.def}</span><button data-a="+">+</button></div>`;
-    else if(r.type==='opt') ctrl=`<div class="ctr"><select>${r.opts.map(o=>`<option ${o===r.def?'selected':''}>${o}</option>`).join('')}</select></div>`;
-    else ctrl=`<div class="ctr"></div>`;
-    /* floor selector: G/1/2 */
-    const floorPick=`<select class="floor-pick" title="Kis floor par?"><option value="0">G</option><option value="1">1st</option><option value="2">2nd</option></select>`;
-    row.innerHTML=`<input type="checkbox" ${reqState[r.id].on?'checked':''}><div class="nm">${r.en}<span class="urdu">${r.ur}</span></div>${ctrl}${floorPick}`;
-    box.appendChild(row);
+    /* per-floor counts: floorQty[0]=ground, [1]=first, [2]=second ; size {w,h} in ft (0 = auto) */
+    const def = ['bed','bath','kitchen','lounge','porch','open'].includes(r.id);
+    reqState[r.id]={on:def, count:r.def||1, opt:r.def, floorQty:[r.def||1, 0, 0], size:{w:0,h:0}};
+
+    const item=document.createElement('div'); item.className='req-item';
+    const row=document.createElement('div'); row.className='req'+(def?' on':'');
+
+    let right='';
+    if(r.type==='count')      right=`<span class="req-sum" data-sum>${r.def}</span><button class="req-tog" data-tog title="Manzilein aur size">▾</button>`;
+    else if(r.type==='opt')   right=`<div class="ctr"><select class="opt-sel">${r.opts.map(o=>`<option ${o===r.def?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    else                      right=`<div class="ctr"></div>`;
+    row.innerHTML=`<input type="checkbox" ${def?'checked':''}><div class="nm">${r.en}<span class="urdu">${r.ur}</span></div>${right}`;
+    item.appendChild(row);
+
+    /* expandable detail panel — count items only */
+    let detail=null;
+    if(r.type==='count'){
+      detail=document.createElement('div'); detail.className='req-detail';
+      detail.innerHTML=`
+        <div class="rd-title">Per-floor tadaad · ہر منزل الگ</div>
+        <div class="rd-floors"></div>
+        <div class="rd-title" style="margin-top:9px">Room size · سائز (ft)</div>
+        <div class="rd-size">
+          <label>W</label><input class="sz-in" data-sz="w" type="number" min="0" placeholder="Auto">
+          <span class="sz-x">×</span>
+          <label>H</label><input class="sz-in" data-sz="h" type="number" min="0" placeholder="Auto">
+          <button class="sz-auto" data-auto>Auto</button>
+        </div>
+        <div class="sz-hint">Khali = auto size. W×H doge to naqsha usko honor karega (bada size = zyada jagah).</div>`;
+      item.appendChild(detail);
+    }
+    box.appendChild(item);
+
+    /* checkbox */
     const cb=row.querySelector('input[type=checkbox]');
-    cb.addEventListener('change',()=>{ reqState[r.id].on=cb.checked; row.classList.toggle('on',cb.checked); if(floorPlan.floors) genFloorPlan(); });
-    row.querySelectorAll('.ctr button').forEach(b=>b.addEventListener('click',()=>{
-      const s=reqState[r.id]; s.count=Math.min(9,Math.max(1,s.count+(b.dataset.a==='+'?1:-1)));
-      row.querySelector('.v').textContent=s.count; if(floorPlan.floors) genFloorPlan();
-    }));
-    const sel=row.querySelector('.ctr select:not(.floor-pick)');
+    cb.addEventListener('change',()=>{ reqState[r.id].on=cb.checked; row.classList.toggle('on',cb.checked); if(!cb.checked) item.classList.remove('open'); if(floorPlan.floors) genFloorPlan(); });
+
+    /* opt dropdown */
+    const sel=row.querySelector('.opt-sel');
     if(sel) sel.addEventListener('change',()=>{ reqState[r.id].opt=sel.value; if(floorPlan.floors) genFloorPlan(); });
-    const fp=row.querySelector('.floor-pick');
-    fp.addEventListener('change',()=>{ reqState[r.id].floor=+fp.value; if(floorPlan.floors) genFloorPlan(); });
+
+    if(r.type==='count'){
+      const tog=row.querySelector('[data-tog]');
+      const sum=row.querySelector('[data-sum]');
+      tog.addEventListener('click',()=>{ if(!reqState[r.id].on){ cb.checked=true; cb.dispatchEvent(new Event('change')); } item.classList.toggle('open'); });
+
+      /* build per-floor counter rows (dynamic to floorPlan.count) */
+      const renderFloors=()=>{
+        const wrap=detail.querySelector('.rd-floors'); wrap.innerHTML='';
+        for(let fl=0; fl<floorPlan.count; fl++){
+          const fr=document.createElement('div'); fr.className='rd-floor';
+          fr.innerHTML=`<span class="fl-nm">${FLOOR_NAMES[fl][0]}<span>${FLOOR_NAMES[fl][1]}</span></span>
+            <div class="rd-ctr"><button data-a="-">−</button><span class="v">${reqState[r.id].floorQty[fl]}</span><button data-a="+">+</button></div>`;
+          const val=fr.querySelector('.v');
+          fr.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+            const s=reqState[r.id];
+            s.floorQty[fl]=Math.min(9,Math.max(0, s.floorQty[fl]+(b.dataset.a==='+'?1:-1)));
+            val.textContent=s.floorQty[fl];
+            s.count=s.floorQty.reduce((a,b)=>a+b,0); sum.textContent=s.count;
+            if(floorPlan.floors) genFloorPlan();
+          }));
+          wrap.appendChild(fr);
+        }
+      };
+      renderFloors();
+      reqState[r.id]._renderFloors=renderFloors;
+
+      /* size inputs */
+      detail.querySelectorAll('.sz-in').forEach(inp=>inp.addEventListener('input',()=>{
+        reqState[r.id].size[inp.dataset.sz]=Math.max(0, parseFloat(inp.value)||0);
+        if(floorPlan.floors) genFloorPlan();
+      }));
+      detail.querySelector('[data-auto]').addEventListener('click',()=>{
+        reqState[r.id].size={w:0,h:0};
+        detail.querySelectorAll('.sz-in').forEach(i=>i.value='');
+        if(floorPlan.floors) genFloorPlan();
+      });
+    }
   });
 })();
 
-/* floor count */
+/* floor count — also refresh every requirement's per-floor rows */
 $('floorSeg')?.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
   $('floorSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); floorPlan.count=+b.dataset.v; floorPlan.view=0;
+  Object.values(reqState).forEach(s=> s._renderFloors && s._renderFloors());
   if(floorPlan.floors) genFloorPlan();
 }));
 
@@ -2822,24 +2948,24 @@ $('floorSeg')?.querySelectorAll('button').forEach(b=>b.addEventListener('click',
 function refreshGenBtn(){ const b=$('btnGen'); if(b) b.disabled = !(activeArea.sqft>0); }
 
 /* ---- floor plan generation (rectangle from plot area) ---- */
-function room(id,nm,x,y,w,h){return{id,nm,x,y,w,h}}
+function room(id,nm,x,y,w,h,size){return{id,nm,x,y,w,h,size:size||''}}
 function roomList(fl){
-  const list=[]; const add=(id,nm,w)=>list.push({id,nm,w});
-  const c=id=>reqState[id].on?reqState[id].count:0;
-  const onFloor=(id)=>reqState[id].on && reqState[id].floor===fl;
+  const list=[]; const add=(id,nm,w,size)=>list.push({id,nm,w,size:size||''});
+  const fq=(id)=> reqState[id].on ? (reqState[id].floorQty?.[fl]||0) : 0;
+  /* custom size → weight = area/100 (keeps range near default weights); label like 12'×14' */
+  const SZ=(id,dflt)=>{ const s=reqState[id]&&reqState[id].size;
+    return (s&&s.w>0&&s.h>0) ? {w:(s.w*s.h)/100, lbl:s.w+"'×"+s.h+"'"} : {w:dflt, lbl:''}; };
+  const push=(id,nm,dflt)=>{ const t=SZ(id,dflt); add(id,nm,t.w,t.lbl); };
 
-  /* each item goes to the floor the user assigned it to */
-  if(onFloor('draw'))   for(let i=0;i<c('draw');i++)   add('draw','Drawing ڈرائنگ',1.1);
-  if(onFloor('lounge')) for(let i=0;i<c('lounge');i++) add('lounge','TV Lounge لاؤنج',1.35);
-  if(onFloor('kitchen'))for(let i=0;i<c('kitchen');i++)add('kitchen','Kitchen کچن',0.75);
-  if(onFloor('bed'))    for(let i=0;i<c('bed');i++)    add('bed','Bedroom '+(i+1),1.0);
-  if(onFloor('bath'))   for(let i=0;i<c('bath');i++)   add('bath','Bath 🚿',0.34);
-  if(onFloor('store'))  for(let i=0;i<c('store');i++)  add('store','Store اسٹور',0.4);
-  if(onFloor('laundry'))add('laundry','Laundry',0.3);
-  if(onFloor('porch'))  add('porch','Porch 🚗',0.5);
+  for(let i=0;i<fq('draw');i++)   push('draw','Drawing ڈرائنگ',1.1);
+  for(let i=0;i<fq('lounge');i++) push('lounge','TV Lounge لاؤنج',1.35);
+  for(let i=0;i<fq('kitchen');i++)push('kitchen','Kitchen کچن',0.75);
+  for(let i=0;i<fq('bed');i++){ const t=SZ('bed',1.0); add('bed','Bedroom '+(i+1),t.w,t.lbl); }
+  for(let i=0;i<fq('bath');i++)   push('bath','Bath 🚿',0.34);
+  for(let i=0;i<fq('store');i++)  push('store','Store اسٹور',0.4);
+  if(reqState.laundry.on && fl===0) add('laundry','Laundry',0.3);
   /* stairs: on every floor if multi-story */
-  if(reqState.stair.on && (onFloor('stair') || (floorPlan.count>1 && fl>0))) add('stair','Stairs سیڑھیاں',0.42);
-  /* if floor is empty, add a placeholder */
+  if(reqState.stair.on && floorPlan.count>1) add('stair','Stairs سیڑھیاں',0.42);
   if(!list.length) add('terrace','(Khali / Terrace ٹیرس)',1.0);
   return list;
 }
@@ -2848,7 +2974,7 @@ function packRooms(x,y,w,h,list){
   const out=[];
   (function split(x,y,w,h,items){
     if(!items.length) return;
-    if(items.length===1){ out.push(room(items[0].id,items[0].nm,x,y,w,h)); return; }
+    if(items.length===1){ out.push(room(items[0].id,items[0].nm,x,y,w,h,items[0].size)); return; }
     const tot=items.reduce((s,i)=>s+i.w,0); let acc=0,i=0;
     while(i<items.length-1 && acc+items[i].w<tot/2){ acc+=items[i].w; i++; }
     const g1=items.slice(0,Math.max(1,i)), g2=items.slice(Math.max(1,i));
@@ -2868,13 +2994,13 @@ function genFloorPlan(){
   const floors=[];
   for(let fl=0; fl<floorPlan.count; fl++){
     let x=0,y=0,w=W,h=H; const placed=[];
-    if(reqState.open.on && reqState.open.floor===fl){
+    if(reqState.open.on && fl===0){
       const dpt=Math.max(6,H*0.14), side=reqState.open.opt;
       if(side==='Front'){ placed.push(room('open','Lawn صحن',x,y,w,dpt)); y+=dpt; h-=dpt; }
       else if(side==='Back'){ placed.push(room('open','Lawn صحن',x,y+h-dpt,w,dpt)); h-=dpt; }
       else { const dw=Math.max(5,W*0.14); placed.push(room('open','Open گلی',x+w-dw,y,dw,h)); w-=dw; }
     }
-    if(reqState.porch.on && reqState.porch.floor===fl){
+    if(reqState.porch.on && fl===0){
       const big=reqState.porch.opt==='Large';
       const pw=Math.min(w*0.42,big?16:11), ph=Math.min(h*0.3,big?20:16);
       placed.push(room('porch','Porch 🚗',x,y,pw,ph));
@@ -2909,11 +3035,117 @@ function buildFloorTabs(){
 const RCOL={open:'rgba(74,222,128,.13)',porch:'rgba(240,180,68,.14)',bed:'rgba(90,162,255,.12)',bath:'rgba(125,211,252,.14)',kitchen:'rgba(251,146,60,.13)',draw:'rgba(192,132,252,.13)',lounge:'rgba(90,162,255,.09)',store:'rgba(148,163,184,.12)',laundry:'rgba(125,211,252,.10)',stair:'rgba(240,180,68,.10)',terrace:'rgba(74,222,128,.10)'};
 const RSTK={open:'#4ade80',porch:'#f0b444',bed:'#5aa2ff',bath:'#7dd3fc',kitchen:'#fb923c',draw:'#c084fc',lounge:'#5aa2ff',store:'#94a3b8',laundry:'#7dd3fc',stair:'#f0b444',terrace:'#4ade80'};
 
+/* ============================================================
+   PROFESSIONAL BLUEPRINT RENDERER  (AutoCAD / Sweet Home 3D style)
+   thick outer walls + thin partitions + dimension lines + door
+   swing arcs + window symbols + furniture vectors
+   ============================================================ */
+const WALL_OUT_FT = 0.75;   // 9"  external boundary wall
+const WALL_IN_FT  = 0.375;  // 4.5" internal partition
+const BP = {
+  paper:'#0e1622', floor:'#0c1a2b', poche:'#31456b', wallEdge:'#b9c9ea',
+  furn:'#7d95bc', furnFill:'rgba(125,149,188,.10)', door:'#d3def3',
+  win:'#7fd0ff', dim:'#f0b444', dimTxt:'#f5c766', label:'#eef4fc', sub:'#9fb4d4'
+};
+const RLABEL = {
+  bed:['Bedroom','بیڈ روم'], bath:['Bathroom','واش روم'], kitchen:['Kitchen','کچن'],
+  draw:['Drawing Room','ڈرائنگ روم'], lounge:['TV Lounge','ٹی وی لاؤنج'], store:['Store','اسٹور'],
+  laundry:['Laundry','لانڈری'], stair:['Staircase','سیڑھیاں'], porch:['Car Porch','پورچ'],
+  open:['Lawn / Open','صحن'], terrace:['Terrace','ٹیرس']
+};
+/* ---- low-level primitives ---- */
+function _head(x,y,ang,s,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,y);
+  ctx.lineTo(x-s*Math.cos(ang-0.42), y-s*Math.sin(ang-0.42));
+  ctx.lineTo(x-s*Math.cos(ang+0.42), y-s*Math.sin(ang+0.42)); ctx.closePath(); ctx.fill(); }
+function _dimH(x1,x2,yy,label){ if(x2-x1<26) return; ctx.strokeStyle=BP.dim; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(x1,yy); ctx.lineTo(x2,yy); ctx.stroke();
+  _head(x1,yy,Math.PI,4.5,BP.dim); _head(x2,yy,0,4.5,BP.dim);
+  ctx.font='600 9.5px Space Grotesk'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillStyle=BP.dimTxt; ctx.fillText(label,(x1+x2)/2,yy-2); ctx.textBaseline='alphabetic'; }
+function _dimV(y1,y2,xx,label){ if(y2-y1<26) return; ctx.strokeStyle=BP.dim; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(xx,y1); ctx.lineTo(xx,y2); ctx.stroke();
+  _head(xx,y1,-Math.PI/2,4.5,BP.dim); _head(xx,y2,Math.PI/2,4.5,BP.dim);
+  ctx.save(); ctx.translate(xx-2,(y1+y2)/2); ctx.rotate(-Math.PI/2);
+  ctx.font='600 9.5px Space Grotesk'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillStyle=BP.dimTxt; ctx.fillText(label,0,0); ctx.restore(); ctx.textBaseline='alphabetic'; }
+function _extLine(x1,y1,x2,y2){ ctx.strokeStyle=BP.dim; ctx.lineWidth=.7; ctx.globalAlpha=.6;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.globalAlpha=1; }
+/* door: hinge (hx,hy), along-wall unit (ax,ay), into-room unit (nx,ny), leaf len px */
+function _door(hx,hy,ax,ay,nx,ny,len){
+  const aw=Math.atan2(ay,ax), an=Math.atan2(ny,nx);
+  ctx.strokeStyle=BP.door; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx+nx*len,hy+ny*len); ctx.stroke();   // open leaf
+  ctx.strokeStyle='rgba(211,222,243,.5)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  let a0=aw,a1=an, d=a1-a0; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI;
+  ctx.beginPath(); ctx.arc(hx,hy,len,a0,a0+d,d<0); ctx.stroke(); ctx.setLineDash([]);
+}
+/* window: parallel glazing lines centred within a boundary wall segment */
+function _window(cx,cy,along,wallT,segLen){
+  const [ax,ay]=along, nx=-ay, ny=ax, half=segLen/2, t=wallT/2;
+  ctx.strokeStyle=BP.win; ctx.lineWidth=1.3;
+  [-t*0.55,0,t*0.55].forEach(o=>{ ctx.beginPath();
+    ctx.moveTo(cx-ax*half+nx*o, cy-ay*half+ny*o);
+    ctx.lineTo(cx+ax*half+nx*o, cy+ay*half+ny*o); ctx.stroke(); });
+}
+/* ---- furniture vector blocks (drawn inside a room floor rect) ---- */
+function _rr(x,y,w,h,r){ ctx.beginPath(); r=Math.min(r,w/2,h/2);
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawFurniture(r,fx,fy,fw,fh){
+  if(fw<34||fh<26) return;
+  ctx.save(); ctx.strokeStyle=BP.furn; ctx.fillStyle=BP.furnFill; ctx.lineWidth=1; ctx.lineJoin='round';
+  const cx=fx+fw/2, cy=fy+fh/2, id=r.id;
+  const bedI = id==='bed' && /(^|\D)1(\D|$)/.test(r.nm);
+  if(id==='bed'){
+    const bw=Math.min(fw*0.62, fh*0.9), bh=Math.min(fh*0.7, fw*0.9);
+    const bx=cx-bw/2, by=cy-bh/2;
+    _rr(bx,by,bw,bh,4); ctx.fill(); ctx.stroke();                       // mattress
+    ctx.beginPath(); ctx.moveTo(bx,by+bh*0.24); ctx.lineTo(bx+bw,by+bh*0.24); ctx.stroke(); // headboard line
+    _rr(bx+bw*0.12,by+bh*0.05,bw*0.32,bh*0.15,3); ctx.stroke();          // pillow L
+    _rr(bx+bw*0.56,by+bh*0.05,bw*0.32,bh*0.15,3); ctx.stroke();          // pillow R
+  } else if(id==='lounge'||id==='draw'){
+    const sw=fw*0.7, sh=Math.min(fh*0.26,26), sx=cx-sw/2, sy=fy+fh-sh-6;
+    _rr(sx,sy,sw,sh,5); ctx.fill(); ctx.stroke();                        // sofa base
+    _rr(sx,sy-6,sw,10,4); ctx.stroke();                                  // backrest
+    ctx.beginPath(); ctx.moveTo(sx+sw/3,sy);ctx.lineTo(sx+sw/3,sy+sh);
+    ctx.moveTo(sx+2*sw/3,sy);ctx.lineTo(sx+2*sw/3,sy+sh); ctx.stroke();  // cushions
+    _rr(cx-16,sy-30,32,18,3); ctx.stroke();                             // coffee table
+    if(id==='draw' && fw>90){ ctx.strokeRect(cx-22,fy+8,44,22);         // dining table
+      [[-30,0],[30,0],[-30,22],[30,22]].forEach(([dx,dy])=>ctx.strokeRect(cx-4+dx,fy+8+dy-2,8,8)); }
+  } else if(id==='kitchen'){
+    ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(fx+5,fy+14); ctx.lineTo(fx+fw-6,fy+14); ctx.stroke();      // counter top run
+    ctx.strokeRect(fx+5,fy+5,fw-11,9);
+    ctx.beginPath(); ctx.arc(fx+fw*0.3,fy+10,3.4,0,7); ctx.stroke();     // sink
+    ctx.strokeRect(fx+fw*0.55,fy+6,14,7);                                // stove
+    ctx.beginPath(); ctx.arc(fx+fw*0.55+4,fy+9.5,1.6,0,7); ctx.arc(fx+fw*0.55+10,fy+9.5,1.6,0,7); ctx.stroke();
+  } else if(id==='bath'){
+    _rr(fx+5,fy+6,11,15,3); ctx.stroke();                               // WC tank+bowl
+    ctx.beginPath(); ctx.ellipse(fx+10.5,fy+16,4,5,0,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(fx+fw-11,fy+11,5,3.4,0,0,7); ctx.stroke(); // basin
+  } else if(id==='stair'){
+    const n=6, sh=fh/n; ctx.lineWidth=1;
+    for(let i=1;i<n;i++){ ctx.beginPath(); ctx.moveTo(fx+4,fy+i*sh); ctx.lineTo(fx+fw-4,fy+i*sh); ctx.stroke(); }
+    ctx.strokeRect(fx+3,fy+3,fw-6,fh-6);
+    _head(fx+fw/2,fy+6,-Math.PI/2,6,BP.furn);                           // up arrow
+    ctx.beginPath(); ctx.moveTo(fx+fw/2,fy+fh-6); ctx.lineTo(fx+fw/2,fy+8); ctx.stroke();
+  } else if(id==='porch'){
+    _rr(cx-fw*0.24,cy-fh*0.34,fw*0.48,fh*0.68,7); ctx.stroke();          // car body
+    [[-0.14,-0.24],[0.14,-0.24],[-0.14,0.24],[0.14,0.24]].forEach(([dx,dy])=>{
+      ctx.fillStyle=BP.furn; ctx.beginPath(); ctx.ellipse(cx+fw*dx,cy+fh*dy,3,5,0,0,7); ctx.fill(); });
+  } else if(id==='store'||id==='laundry'){
+    ctx.strokeRect(fx+5,fy+5,fw-10,7); ctx.strokeRect(fx+5,fy+15,fw-10,7);
+  } else if(id==='open'||id==='terrace'){
+    ctx.strokeStyle='rgba(74,222,128,.5)';
+    for(let i=0;i<5;i++){ const gx=fx+8+i*(fw-16)/4; ctx.beginPath();
+      ctx.moveTo(gx,fy+fh-6); ctx.lineTo(gx-3,fy+fh-14); ctx.moveTo(gx,fy+fh-6); ctx.lineTo(gx+3,fy+fh-14); ctx.stroke(); }
+  }
+  ctx.restore();
+}
 function drawFloorPlan(){
   const w=cv.clientWidth, h=cv.clientHeight;
-  ctx.fillStyle='#0d1520'; ctx.fillRect(0,0,w,h);
-  /* faint grid */
-  ctx.strokeStyle='#16243a'; ctx.lineWidth=1;
+  ctx.fillStyle=BP.paper; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#15243a'; ctx.lineWidth=1;
   for(let x=0;x<w;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
   for(let y=0;y<h;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
   if(!floorPlan.floors){
@@ -2924,29 +3156,92 @@ function drawFloorPlan(){
     return;
   }
   const fl=floorPlan.floors[Math.min(floorPlan.view,floorPlan.floors.length-1)];
-  const pad=80;
+  const pad=104;
   const sc=Math.min((w-pad*2)/fl.W,(h-pad*2)/fl.H);
   const ox=(w-fl.W*sc)/2, oy=(h-fl.H*sc)/2;
-  ctx.save(); ctx.shadowColor='rgba(90,162,255,.4)'; ctx.shadowBlur=12;
-  ctx.strokeStyle='#5aa2ff'; ctx.lineWidth=3; ctx.strokeRect(ox,oy,fl.W*sc,fl.H*sc); ctx.restore();
+  const OW=WALL_OUT_FT*sc, IW=Math.max(2,WALL_IN_FT*sc), eps=0.06;
+  const PX=ft=>ox+ft*sc, PY=ft=>oy+ft*sc;
+  const bx0=PX(0), by0=PY(0), bW=fl.W*sc, bH=fl.H*sc;
+
+  /* soft drop shadow under the building */
+  ctx.save(); ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=18; ctx.shadowOffsetY=6;
+  ctx.fillStyle=BP.poche; ctx.fillRect(bx0,by0,bW,bH); ctx.restore();
+
+  /* 1) whole footprint = solid wall poché */
+  ctx.fillStyle=BP.poche; ctx.fillRect(bx0,by0,bW,bH);
+
+  /* 2) carve each room floor, leaving OW perimeter walls + IW partitions */
   fl.placed.forEach(r=>{
-    const x=ox+r.x*sc,y=oy+r.y*sc,rw=r.w*sc,rh=r.h*sc;
-    ctx.fillStyle=RCOL[r.id]||'rgba(255,255,255,.06)'; ctx.fillRect(x,y,rw,rh);
-    ctx.strokeStyle=RSTK[r.id]||'#8fa3bd'; ctx.lineWidth=1.2; ctx.strokeRect(x+1,y+1,rw-2,rh-2);
-    if(rw>46&&rh>28){
+    const onL=r.x<=eps, onT=r.y<=eps, onR=r.x+r.w>=fl.W-eps, onB=r.y+r.h>=fl.H-eps;
+    const L=onL?OW:IW/2, T=onT?OW:IW/2, R=onR?OW:IW/2, B=onB?OW:IW/2;
+    const fx=PX(r.x)+L, fy=PY(r.y)+T, fw=r.w*sc-L-R, fh=r.h*sc-T-B;
+    r._fr={fx,fy,fw,fh,onL,onT,onR,onB};
+    if(fw<=0||fh<=0) return;
+    ctx.fillStyle=BP.floor; ctx.fillRect(fx,fy,fw,fh);
+    ctx.fillStyle=RCOL[r.id]||'rgba(255,255,255,.05)'; ctx.fillRect(fx,fy,fw,fh); // subtle id tint
+  });
+
+  /* 3) crisp wall faces */
+  ctx.strokeStyle=BP.wallEdge; ctx.lineWidth=1.6; ctx.strokeRect(bx0+.8,by0+.8,bW-1.6,bH-1.6);
+  ctx.lineWidth=1; ctx.strokeRect(bx0+OW,by0+OW,bW-2*OW,bH-2*OW);
+  fl.placed.forEach(r=>{ const f=r._fr; if(f&&f.fw>0&&f.fh>0){
+    ctx.strokeStyle='rgba(185,201,234,.55)'; ctx.lineWidth=1; ctx.strokeRect(f.fx-.5,f.fy-.5,f.fw+1,f.fh+1); }});
+
+  /* 4) windows on exterior walls (skip open/lawn) */
+  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<=0||f.fh<=0||r.id==='open'||r.id==='terrace') return;
+    const segH=Math.min(f.fw*0.5, 4*sc), segV=Math.min(f.fh*0.5, 4*sc);
+    if(f.onT && f.fw>44) _window(f.fx+f.fw/2, by0+OW/2, [1,0], OW, segH);
+    if(f.onB && f.fw>44) _window(f.fx+f.fw/2, by0+bH-OW/2, [1,0], OW, segH);
+    if(f.onL && f.fh>44) _window(bx0+OW/2, f.fy+f.fh/2, [0,1], OW, segV);
+    if(f.onR && f.fh>44) _window(bx0+bW-OW/2, f.fy+f.fh/2, [0,1], OW, segV);
+  });
+
+  /* 5) one door per room on an interior wall (facing plot centre) */
+  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<40||f.fh<30||r.id==='open'||r.id==='porch'||r.id==='terrace') return;
+    const dl=Math.min(2.6*sc, f.fw*0.5, f.fh*0.5);
+    const sides=[];
+    if(!f.onB) sides.push({s:'B',x:f.fx+Math.min(dl*0.9,f.fw*0.3),y:f.fy+f.fh,ax:1,ay:0,nx:0,ny:-1,len:f.fw});
+    if(!f.onR) sides.push({s:'R',x:f.fx+f.fw,y:f.fy+Math.min(dl*0.9,f.fh*0.3),ax:0,ay:1,nx:-1,ny:0,len:f.fh});
+    if(!f.onT) sides.push({s:'T',x:f.fx+Math.min(dl*0.9,f.fw*0.3),y:f.fy,ax:1,ay:0,nx:0,ny:1,len:f.fw});
+    if(!f.onL) sides.push({s:'L',x:f.fx,y:f.fy+Math.min(dl*0.9,f.fh*0.3),ax:0,ay:1,nx:1,ny:0,len:f.fh});
+    if(!sides.length) return;
+    const d=sides[0];
+    _door(d.x,d.y,d.ax,d.ay,d.nx,d.ny,dl);
+  });
+
+  /* 6) furniture + labels + per-room dimension line */
+  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<=0||f.fh<=0) return;
+    drawFurniture(r,f.fx,f.fy,f.fw,f.fh);
+    const lab=RLABEL[r.id]||[r.nm,''];
+    let en=lab[0]; if(r.id==='bed'){ const n=(r.nm.match(/(\d+)/)||[])[1]; en=n==='1'?'Master Bedroom':'Bedroom '+(n||''); }
+    if(f.fw>40&&f.fh>30){
       ctx.textAlign='center';
-      ctx.font='600 12px Space Grotesk'; ctx.fillStyle='#e8eef7'; ctx.fillText(r.nm,x+rw/2,y+rh/2-2,rw-8);
-      ctx.font='500 10.5px Space Grotesk'; ctx.fillStyle='#8fa3bd';
-      ctx.fillText(r.w.toFixed(0)+"'×"+r.h.toFixed(0)+"'",x+rw/2,y+rh/2+13);
+      ctx.font='600 11.5px Space Grotesk'; ctx.fillStyle=BP.label;
+      ctx.fillText(en, f.fx+f.fw/2, f.fy+f.fh/2-3, f.fw-8);
+      if(lab[1]){ ctx.font='500 10px Noto Nastaliq Urdu, Space Grotesk'; ctx.fillStyle=BP.sub;
+        ctx.fillText(lab[1], f.fx+f.fw/2, f.fy+f.fh/2+12, f.fw-8); }
+      /* dimension line with arrows hugging the top-inner edge */
+      const dimTxt = r.size ? r.size : (r.w.toFixed(0)+"'×"+r.h.toFixed(0)+"'");
+      if(f.fw>60&&f.fh>50) _dimH(f.fx+4, f.fx+f.fw-4, f.fy+11, dimTxt);
     }
   });
-  ctx.font='600 12px Space Grotesk'; ctx.fillStyle='#f0b444'; ctx.textAlign='center';
-  ctx.fillText('◄ FRONT — سامنے (Road side) ►', ox+fl.W*sc/2, oy-14);
+
+  /* 7) exterior overall dimension lines (arrows + extension lines) */
+  const dOff=34, ext=8;
+  _extLine(bx0, by0, bx0, by0-dOff-ext); _extLine(bx0+bW, by0, bx0+bW, by0-dOff-ext);
+  _dimH(bx0, bx0+bW, by0-dOff, fl.W.toFixed(1)+" ft");
+  _extLine(bx0, by0, bx0-dOff-ext, by0); _extLine(bx0, by0+bH, bx0-dOff-ext, by0+bH);
+  _dimV(by0, by0+bH, bx0-dOff, fl.H.toFixed(1)+" ft");
+
+  /* 8) titles */
+  ctx.textAlign='center';
+  ctx.font='600 12px Space Grotesk'; ctx.fillStyle='#f0b444';
+  ctx.fillText('◄ FRONT — سامنے (Road side) ►', bx0+bW/2, by0-dOff-22);
   const names=['GROUND FLOOR — گراؤنڈ فلور','FIRST FLOOR — پہلی منزل','SECOND FLOOR — دوسری منزل'];
-  ctx.fillStyle='#8fa3bd'; ctx.font='700 13px Space Grotesk';
-  ctx.fillText(names[Math.min(floorPlan.view,2)], ox+fl.W*sc/2, oy+fl.H*sc+26);
-  ctx.font='500 11px Space Grotesk'; ctx.fillStyle='#5d7291';
-  ctx.fillText('💡 Rooms ko mouse se drag kar ke jagah badal sakte hain', ox+fl.W*sc/2, oy+fl.H*sc+46);
+  ctx.fillStyle='#cdd8ec'; ctx.font='700 13px Space Grotesk';
+  ctx.fillText(names[Math.min(floorPlan.view,2)], bx0+bW/2, by0+bH+30);
+  ctx.font='500 10px Space Grotesk'; ctx.fillStyle='#5d7291';
+  ctx.fillText('🔲 9" outer walls · 4.5" partitions · doors + windows + furniture · drag rooms to reposition', bx0+bW/2, by0+bH+48);
 }
 
 /* ---- view switching (board vs floor plan) ---- */
@@ -3556,6 +3851,19 @@ $('btnExport').addEventListener('click', ()=>{
   toast('⬇ Project exported — plot-planner-project.json');
 });
 
+/* stepper tabs */
+document.querySelectorAll('.step-btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.step-btn').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.step-panel').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelector('.step-panel[data-step="'+b.dataset.step+'"]').classList.add('on');
+}));
+/* accordion collapse/expand */
+document.querySelectorAll('.acc-head').forEach(h=>h.addEventListener('click',()=>{
+  const acc=h.closest('.acc');
+  acc.dataset.open = acc.dataset.open==='1' ? '0' : '1';
+}));
+
 /* init */
 resize();
 syncStats();
@@ -3571,7 +3879,7 @@ $('svLeft').value=survey.left; $('svRight').value=survey.right; $('svRear').valu
 updateCornerNote();
 refreshGenBtn();
 /* default: Karachi (Gaz) mode */
-$('pkGaz').closest('.card').classList.add('karachi-mode');
+($('pkGaz').closest('.acc')||$('pkGaz').parentElement).classList.add('karachi-mode');
 renderConverter();
 </script>
 </body>
