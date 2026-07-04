@@ -238,6 +238,8 @@ footer .coords{margin-left:auto;display:flex;gap:18px}
 .ctr button:hover{background:var(--blue);color:#06111f;border-color:var(--blue)}
 .ctr .v{min-width:26px;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);height:24px;line-height:23px;background:#0b1420;font-variant-numeric:tabular-nums;color:var(--amber);font-size:12px}
 .ctr select{height:24px;padding:0 5px;font-size:11px;border-radius:7px;width:auto;background:#0b1420;border:1px solid var(--line);color:var(--muted)}
+.floor-pick{height:24px!important;padding:0 4px!important;font-size:10.5px!important;border-radius:6px!important;width:46px!important;background:#0b1420!important;border:1px solid var(--line)!important;color:var(--amber)!important;margin-left:4px;flex:0 0 auto;cursor:pointer}
+.floor-pick:focus{border-color:var(--blue)!important}
 .floor-seg{display:flex;gap:6px;margin-top:10px}
 .floor-seg button{
   flex:1;padding:8px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px;
@@ -375,6 +377,7 @@ table.bom input{
   border-radius:7px;padding:6px 9px;font:inherit;font-size:13px;font-weight:600;
 }
 table.bom input:focus{outline:none;border-color:var(--amber)}
+.bom-qty{width:120px!important;color:var(--blue)!important}
 tr.total-row td{border-bottom:none;padding-top:14px}
 .grand{
   background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.4);border-radius:11px;
@@ -570,6 +573,10 @@ input[type=range]::-moz-range-thumb{
 .pk-line:last-child{border-bottom:none}
 .pk-line .k{color:var(--muted)}
 .pk-line .v{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.pk-gaz-row{background:rgba(240,180,68,.07);border:1px solid rgba(240,180,68,.3);border-radius:8px;padding:8px 10px!important;margin-bottom:2px}
+.pk-gaz-row .k{color:var(--amber)!important;font-weight:600}
+/* Karachi mode: hide marla/kanal/sarsahi rows */
+.karachi-mode .pk-marla-row{display:none}
 .pk-total{
   margin-top:9px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.35);
   border-radius:9px;padding:9px 11px;text-align:center;font-size:13px;font-weight:700;color:var(--green);
@@ -795,7 +802,14 @@ input[type=range]::-moz-range-thumb{
       <h3>Pakistani Unit Converter</h3>
       <div class="src-tag" style="margin-bottom:8px">Source: <b id="pkSrc">—</b></div>
 
-      <div class="field"><label>Marla Standard · مرلہ معیار</label>
+      <div class="field"><label>Region · علاقہ</label>
+        <div class="seg" id="regionSeg">
+          <button data-v="karachi" class="on">🌆 Karachi (Gaz)</button>
+          <button data-v="punjab">🏛 Punjab (Marla)</button>
+        </div>
+      </div>
+
+      <div class="field" id="marlaStdWrap" style="display:none"><label>Marla Standard · مرلہ معیار</label>
         <select id="marlaStd">
           <option value="272.25" selected>Rural / Traditional = 272.25 sq ft</option>
           <option value="225">Lahore / Urban = 225 sq ft</option>
@@ -803,11 +817,12 @@ input[type=range]::-moz-range-thumb{
         </select>
       </div>
 
+      <!-- Karachi order: Gaz first & highlighted -->
+      <div class="pk-line pk-gaz-row"><span class="k">Sq. Yards · گز</span><span class="v" id="pkGaz" style="color:var(--amber);font-size:15px">—</span></div>
       <div class="pk-line"><span class="k">Square Feet</span><span class="v" id="pkSqft">—</span></div>
-      <div class="pk-line"><span class="k">Sq. Yards (گز)</span><span class="v" id="pkGaz">—</span></div>
-      <div class="pk-line"><span class="k">Marla (مرلہ)</span><span class="v" id="pkMarla">—</span></div>
-      <div class="pk-line"><span class="k">Kanal (کنال)</span><span class="v" id="pkKanal">—</span></div>
-      <div class="pk-line"><span class="k">Sarsahi (سرساہی)</span><span class="v" id="pkSarsahi">—</span></div>
+      <div class="pk-line pk-marla-row"><span class="k">Marla (مرلہ)</span><span class="v" id="pkMarla">—</span></div>
+      <div class="pk-line pk-marla-row"><span class="k">Kanal (کنال)</span><span class="v" id="pkKanal">—</span></div>
+      <div class="pk-line pk-marla-row"><span class="k">Sarsahi (سرساہی)</span><span class="v" id="pkSarsahi">—</span></div>
 
       <div class="pk-total" id="pkTotal">Enter measurements above</div>
     </div>
@@ -990,35 +1005,36 @@ input[type=range]::-moz-range-thumb{
 
     <table class="bom">
       <thead><tr>
-        <th style="width:32%">Material</th><th>Quantity</th><th>Rate (PKR) — editable</th><th style="text-align:right">Amount</th>
+        <th style="width:30%">Material</th><th>Qty (auto ya khud likhein)</th><th>Rate (PKR)</th><th style="text-align:right">Amount</th>
       </tr></thead>
       <tbody>
         <tr>
-          <td>🧱 Bricks (اینٹیں)<span class="fm">Wall L × 10 ft H × 0.75 ft × 13.5 bricks/cft</span></td>
-          <td class="num" id="mBricks">—</td>
+          <td>🧱 Bricks (اینٹیں)<span class="fm">Wall L × 10ft × 0.75ft × 13.5/cft</span></td>
+          <td><input type="number" min="0" step="1" id="mBricks" class="bom-qty" value="0" placeholder="auto ya type karein"></td>
           <td><input type="number" min="0" step="any" id="rBrick" value="14"> /brick</td>
-          <td class="num" style="text-align:right" id="aBricks">—</td>
+          <td class="num" style="text-align:right" id="aBricks">Rs 0</td>
         </tr>
         <tr>
-          <td>🏗 Cement (سیمنٹ)<span class="fm">1:6 mortar ≈ 0.034 bag per cft of wall</span></td>
-          <td class="num" id="mCement">—</td>
+          <td>🏗 Cement (سیمنٹ)<span class="fm">1:6 mortar ≈ 0.034 bag/cft</span></td>
+          <td><input type="number" min="0" step="0.1" id="mCement" class="bom-qty" value="0" placeholder="auto ya type karein"></td>
           <td><input type="number" min="0" step="any" id="rCement" value="1350"> /bag</td>
-          <td class="num" style="text-align:right" id="aCement">—</td>
+          <td class="num" style="text-align:right" id="aCement">Rs 0</td>
         </tr>
         <tr>
-          <td>⏳ Sand (ریت)<span class="fm">≈ 0.26 cft per cft of wall volume</span></td>
-          <td class="num" id="mSand">—</td>
+          <td>⏳ Sand (ریت)<span class="fm">≈ 0.26 cft per cft wall</span></td>
+          <td><input type="number" min="0" step="1" id="mSand" class="bom-qty" value="0" placeholder="auto ya type karein"></td>
           <td><input type="number" min="0" step="any" id="rSand" value="85"> /cft</td>
-          <td class="num" style="text-align:right" id="aSand">—</td>
+          <td class="num" style="text-align:right" id="aSand">Rs 0</td>
         </tr>
         <tr>
-          <td>◻ Flooring / Tiles (ٹائلیں)<span class="fm">Matches calculated plot area exactly</span></td>
-          <td class="num" id="mTiles">—</td>
+          <td>◻ Tiles (ٹائلیں)<span class="fm">Plot area = auto · ya khud likhein</span></td>
+          <td><input type="number" min="0" step="1" id="mTiles" class="bom-qty" value="0" placeholder="auto ya type karein"></td>
           <td><input type="number" min="0" step="any" id="rTile" value="220"> /sqft</td>
-          <td class="num" style="text-align:right" id="aTiles">—</td>
+          <td class="num" style="text-align:right" id="aTiles">Rs 0</td>
         </tr>
       </tbody>
     </table>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">💡 Qty fields mein khud bhi likh sakte hain — ya canvas par walls draw karein to auto fill hoti hain.</div>
 
     <div class="grand">
       <span class="k">Total Estimated Construction Cost · کل تخمینہ</span>
@@ -1311,6 +1327,7 @@ cv.addEventListener('mousemove', e=>{
 });
 
 cv.addEventListener('click', ()=>{
+  if(boardView.mode==='floor') return;   // floor plan mein click se line nahi bane — rooms drag hoti hain
   const p = [...state.mouse];
   if(state.tool === 'line'){
     if(!state.pending){ state.pending = p; $('fMsg').textContent = 'Move and click again to finish the line · Esc to cancel'; }
@@ -1439,6 +1456,7 @@ function runEngine(){
    1 Marla  = 9 Sarsahi
    ============================================================ */
 let activeArea = { sqft: 0, src: '—' };
+let pkRegion = 'karachi';   // 'karachi' (Gaz) | 'punjab' (Marla)
 
 function setActiveArea(sqft, src){
   activeArea = { sqft, src };
@@ -1454,25 +1472,49 @@ function renderConverter(){
     return;
   }
   const marlaSize = parseFloat($('marlaStd').value);   // sq ft per marla
+  const gaz       = sqft / 9;                          // 1 sq yard (گز) = 9 sq ft
   const marlas    = sqft / marlaSize;                  // total marlas (decimal)
   const kanals    = marlas / 20;                       // 1 kanal = 20 marla
   const sarsahis  = marlas * 9;                        // 1 marla = 9 sarsahi
 
   $('pkSqft').textContent    = sqft.toLocaleString('en-PK', {maximumFractionDigits: 1});
-  $('pkGaz').textContent     = (sqft / 9).toLocaleString('en-PK', {maximumFractionDigits: 1});
+  $('pkGaz').textContent     = gaz.toLocaleString('en-PK', {maximumFractionDigits: 1});
   $('pkMarla').textContent   = marlas.toFixed(2);
   $('pkKanal').textContent   = kanals.toFixed(3);
   $('pkSarsahi').textContent = sarsahis.toFixed(1);
 
-  /* composite breakdown: "1 Kanal, 0 Marla, 0.0 Sarsahi" */
-  const wholeKanal   = Math.floor(marlas / 20);
-  const remMarlaDec  = marlas - wholeKanal * 20;
-  const wholeMarla   = Math.floor(remMarlaDec);
-  const remSarsahi   = (remMarlaDec - wholeMarla) * 9;
-  $('pkTotal').textContent =
-    `Total: ${wholeKanal} Kanal, ${wholeMarla} Marla, ${remSarsahi.toFixed(1)} Sarsahi`;
+  if(pkRegion === 'karachi'){
+    /* Karachi: total in Gaz (round, plus common plot-size note) */
+    const g = Math.round(gaz);
+    let note = '';
+    if(g>=115 && g<=125) note = ' (≈ 120 گز plot)';
+    else if(g>=235 && g<=245) note = ' (≈ 240 گز plot)';
+    else if(g>=395 && g<=405) note = ' (≈ 400 گز plot)';
+    else if(g>=595 && g<=605) note = ' (≈ 600 گز plot)';
+    $('pkTotal').textContent = `Total: ${g.toLocaleString('en-PK')} Gaz (گز)${note}`;
+  } else {
+    /* Punjab: composite Kanal/Marla/Sarsahi */
+    const wholeKanal   = Math.floor(marlas / 20);
+    const remMarlaDec  = marlas - wholeKanal * 20;
+    const wholeMarla   = Math.floor(remMarlaDec);
+    const remSarsahi   = (remMarlaDec - wholeMarla) * 9;
+    $('pkTotal').textContent =
+      `Total: ${wholeKanal} Kanal, ${wholeMarla} Marla, ${remSarsahi.toFixed(1)} Sarsahi`;
+  }
 }
 $('marlaStd').addEventListener('change', renderConverter);
+
+/* region toggle: Karachi (Gaz) vs Punjab (Marla) */
+$('regionSeg')?.querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+  $('regionSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); pkRegion=b.dataset.v;
+  document.querySelector('.card').classList; // noop
+  const card = $('pkGaz').closest('.card');
+  card.classList.toggle('karachi-mode', pkRegion==='karachi');
+  $('marlaStdWrap').style.display = pkRegion==='punjab' ? 'block' : 'none';
+  renderConverter();
+  toast(pkRegion==='karachi' ? '🌆 Karachi mode — sab kuch Gaz mein' : '🏛 Punjab mode — Marla/Kanal');
+}));
 
 /* canvas "Measure Area" now feeds the converter too (px² → sq ft) */
 const _closePoly = closePoly;
@@ -1750,7 +1792,13 @@ function updateRuleNote(){
   }
 }
 
-$('authority').addEventListener('change', e=>{ regState.authority=e.target.value; updateRuleNote(); draw(); });
+$('authority').addEventListener('change', e=>{
+  regState.authority=e.target.value;
+  /* SBCA (Karachi) → Gaz mode; Punjab authorities → Marla mode */
+  if(e.target.value==='SBCA' && pkRegion!=='karachi') $('regionSeg').querySelector('[data-v=karachi]').click();
+  else if(['LDA','RUDA'].includes(e.target.value) && pkRegion!=='punjab') $('regionSeg').querySelector('[data-v=punjab]').click();
+  updateRuleNote(); draw();
+});
 const swB=$('swBasement');
 function toggleBasement(){ regState.basement=!regState.basement; swB.classList.toggle('on',regState.basement); swB.setAttribute('aria-checked',regState.basement); updateRuleNote(); if(regState.basement&&regState.authority==='CDA') toast('⚠ CDA Compliant Basement Check Required'); }
 swB.addEventListener('click', toggleBasement);
@@ -2739,14 +2787,16 @@ const floorPlan = { floors:null, view:0, count:1 };
 (function buildReqRows(){
   const box=$('reqList'); if(!box) return;
   REQS.forEach(r=>{
-    reqState[r.id]={on:['bed','bath','kitchen','lounge','porch','open'].includes(r.id), count:r.def||1, opt:r.def};
+    reqState[r.id]={on:['bed','bath','kitchen','lounge','porch','open'].includes(r.id), count:r.def||1, opt:r.def, floor:0};
     const row=document.createElement('div');
     row.className='req'+(reqState[r.id].on?' on':'');
     let ctrl='';
     if(r.type==='count') ctrl=`<div class="ctr"><button data-a="-">−</button><span class="v">${r.def}</span><button data-a="+">+</button></div>`;
     else if(r.type==='opt') ctrl=`<div class="ctr"><select>${r.opts.map(o=>`<option ${o===r.def?'selected':''}>${o}</option>`).join('')}</select></div>`;
     else ctrl=`<div class="ctr"></div>`;
-    row.innerHTML=`<input type="checkbox" ${reqState[r.id].on?'checked':''}><div class="nm">${r.en}<span class="urdu">${r.ur}</span></div>${ctrl}`;
+    /* floor selector: G/1/2 */
+    const floorPick=`<select class="floor-pick" title="Kis floor par?"><option value="0">G</option><option value="1">1st</option><option value="2">2nd</option></select>`;
+    row.innerHTML=`<input type="checkbox" ${reqState[r.id].on?'checked':''}><div class="nm">${r.en}<span class="urdu">${r.ur}</span></div>${ctrl}${floorPick}`;
     box.appendChild(row);
     const cb=row.querySelector('input[type=checkbox]');
     cb.addEventListener('change',()=>{ reqState[r.id].on=cb.checked; row.classList.toggle('on',cb.checked); if(floorPlan.floors) genFloorPlan(); });
@@ -2754,8 +2804,10 @@ const floorPlan = { floors:null, view:0, count:1 };
       const s=reqState[r.id]; s.count=Math.min(9,Math.max(1,s.count+(b.dataset.a==='+'?1:-1)));
       row.querySelector('.v').textContent=s.count; if(floorPlan.floors) genFloorPlan();
     }));
-    const sel=row.querySelector('.ctr select');
+    const sel=row.querySelector('.ctr select:not(.floor-pick)');
     if(sel) sel.addEventListener('change',()=>{ reqState[r.id].opt=sel.value; if(floorPlan.floors) genFloorPlan(); });
+    const fp=row.querySelector('.floor-pick');
+    fp.addEventListener('change',()=>{ reqState[r.id].floor=+fp.value; if(floorPlan.floors) genFloorPlan(); });
   });
 })();
 
@@ -2773,23 +2825,22 @@ function refreshGenBtn(){ const b=$('btnGen'); if(b) b.disabled = !(activeArea.s
 function room(id,nm,x,y,w,h){return{id,nm,x,y,w,h}}
 function roomList(fl){
   const list=[]; const add=(id,nm,w)=>list.push({id,nm,w});
-  const c=id=>reqState[id].on?reqState[id].count:0, N=floorPlan.count;
-  if(fl===0){
-    for(let i=0;i<c('draw');i++) add('draw','Drawing ڈرائنگ',1.1);
-    for(let i=0;i<c('lounge');i++) add('lounge','TV Lounge لاؤنج',1.35);
-    for(let i=0;i<c('kitchen');i++) add('kitchen','Kitchen کچن',0.75);
-    const beds=Math.ceil(c('bed')/N); for(let i=0;i<beds;i++) add('bed','Bedroom '+(i+1),1.0);
-    const baths=Math.ceil(c('bath')/N); for(let i=0;i<baths;i++) add('bath','Bath 🚿',0.34);
-    if(c('store')) add('store','Store اسٹور',0.4);
-    if(reqState.laundry.on) add('laundry','Laundry',0.3);
-    if(reqState.stair.on && N>1) add('stair','Stairs سیڑھیاں',0.42);
-  } else {
-    const beds=Math.floor(c('bed')/N)||1; for(let i=0;i<beds;i++) add('bed','Bedroom '+(i+1),1.0);
-    const baths=Math.max(1,Math.floor(c('bath')/N)); for(let i=0;i<baths;i++) add('bath','Bath 🚿',0.34);
-    add('lounge','Family لاؤنج',1.2);
-    if(reqState.stair.on) add('stair','Stairs سیڑھیاں',0.42);
-    add('terrace','Terrace ٹیرس',0.7);
-  }
+  const c=id=>reqState[id].on?reqState[id].count:0;
+  const onFloor=(id)=>reqState[id].on && reqState[id].floor===fl;
+
+  /* each item goes to the floor the user assigned it to */
+  if(onFloor('draw'))   for(let i=0;i<c('draw');i++)   add('draw','Drawing ڈرائنگ',1.1);
+  if(onFloor('lounge')) for(let i=0;i<c('lounge');i++) add('lounge','TV Lounge لاؤنج',1.35);
+  if(onFloor('kitchen'))for(let i=0;i<c('kitchen');i++)add('kitchen','Kitchen کچن',0.75);
+  if(onFloor('bed'))    for(let i=0;i<c('bed');i++)    add('bed','Bedroom '+(i+1),1.0);
+  if(onFloor('bath'))   for(let i=0;i<c('bath');i++)   add('bath','Bath 🚿',0.34);
+  if(onFloor('store'))  for(let i=0;i<c('store');i++)  add('store','Store اسٹور',0.4);
+  if(onFloor('laundry'))add('laundry','Laundry',0.3);
+  if(onFloor('porch'))  add('porch','Porch 🚗',0.5);
+  /* stairs: on every floor if multi-story */
+  if(reqState.stair.on && (onFloor('stair') || (floorPlan.count>1 && fl>0))) add('stair','Stairs سیڑھیاں',0.42);
+  /* if floor is empty, add a placeholder */
+  if(!list.length) add('terrace','(Khali / Terrace ٹیرس)',1.0);
   return list;
 }
 function packRooms(x,y,w,h,list){
@@ -2817,13 +2868,13 @@ function genFloorPlan(){
   const floors=[];
   for(let fl=0; fl<floorPlan.count; fl++){
     let x=0,y=0,w=W,h=H; const placed=[];
-    if(reqState.open.on){
+    if(reqState.open.on && reqState.open.floor===fl){
       const dpt=Math.max(6,H*0.14), side=reqState.open.opt;
       if(side==='Front'){ placed.push(room('open','Lawn صحن',x,y,w,dpt)); y+=dpt; h-=dpt; }
       else if(side==='Back'){ placed.push(room('open','Lawn صحن',x,y+h-dpt,w,dpt)); h-=dpt; }
       else { const dw=Math.max(5,W*0.14); placed.push(room('open','Open گلی',x+w-dw,y,dw,h)); w-=dw; }
     }
-    if(reqState.porch.on && fl===0){
+    if(reqState.porch.on && reqState.porch.floor===fl){
       const big=reqState.porch.opt==='Large';
       const pw=Math.min(w*0.42,big?16:11), ph=Math.min(h*0.3,big?20:16);
       placed.push(room('porch','Porch 🚗',x,y,pw,ph));
@@ -2894,6 +2945,8 @@ function drawFloorPlan(){
   const names=['GROUND FLOOR — گراؤنڈ فلور','FIRST FLOOR — پہلی منزل','SECOND FLOOR — دوسری منزل'];
   ctx.fillStyle='#8fa3bd'; ctx.font='700 13px Space Grotesk';
   ctx.fillText(names[Math.min(floorPlan.view,2)], ox+fl.W*sc/2, oy+fl.H*sc+26);
+  ctx.font='500 11px Space Grotesk'; ctx.fillStyle='#5d7291';
+  ctx.fillText('💡 Rooms ko mouse se drag kar ke jagah badal sakte hain', ox+fl.W*sc/2, oy+fl.H*sc+46);
 }
 
 /* ---- view switching (board vs floor plan) ---- */
@@ -2905,6 +2958,46 @@ function setView(v){
   draw();
 }
 document.querySelectorAll('.bt-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+
+/* ---- ROOM DRAG on floor plan ---- */
+let dragRoom=null;
+function getFloorLayout(){
+  if(!floorPlan.floors) return null;
+  return floorPlan.floors[Math.min(floorPlan.view, floorPlan.floors.length-1)];
+}
+function floorTransform(){
+  const fl=getFloorLayout(); if(!fl) return null;
+  const w=cv.clientWidth, h=cv.clientHeight, pad=80;
+  const sc=Math.min((w-pad*2)/fl.W,(h-pad*2)/fl.H);
+  return {ox:(w-fl.W*sc)/2, oy:(h-fl.H*sc)/2, sc, fl};
+}
+function hitRoom(mx,my){
+  const t=floorTransform(); if(!t) return null;
+  for(let i=t.fl.placed.length-1;i>=0;i--){
+    const r=t.fl.placed[i];
+    const x=t.ox+r.x*t.sc, y=t.oy+r.y*t.sc, rw=r.w*t.sc, rh=r.h*t.sc;
+    if(mx>=x&&mx<=x+rw&&my>=y&&my<=y+rh) return {idx:i, room:r, offX:mx-x, offY:my-y, sc:t.sc, ox:t.ox, oy:t.oy};
+  }
+  return null;
+}
+cv.addEventListener('mousedown', e=>{
+  if(boardView.mode!=='floor') return;
+  const rect=cv.getBoundingClientRect();
+  const hit=hitRoom(e.clientX-rect.left, e.clientY-rect.top);
+  if(hit){ dragRoom=hit; cv.style.cursor='grabbing'; e.preventDefault(); }
+});
+window.addEventListener('mousemove', e=>{
+  if(!dragRoom) return;
+  const rect=cv.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const r=dragRoom.room;
+  r.x = Math.max(0, (mx - dragRoom.offX - dragRoom.ox)/dragRoom.sc);
+  r.y = Math.max(0, (my - dragRoom.offY - dragRoom.oy)/dragRoom.sc);
+  draw();
+});
+window.addEventListener('mouseup', ()=>{
+  if(dragRoom){ dragRoom=null; cv.style.cursor='crosshair'; }
+});
 
 /* hook floor-plan rendering into the draw pipeline */
 const _drawForFloor = draw;
@@ -2937,8 +3030,8 @@ const SLIDES = [
   {icon:'🧮', badge:'Feature', title:'Math Engine + <span>PK Units</span>', urdu:'حساب اور پاکستانی یونٹ',
    points:[
      ['📐','<b>Heron\'s Formula</b> se teerha plot ka bilkul sahi rakba.'],
-     ['🇵🇰','Marla / Kanal / Sarsahi / Gaz — sab ek saath.'],
-     ['🏙','Marla standard chunein: Rural 272.25, Lahore 225, Society 250.']
+     ['🌆','<b>Karachi mode</b>: sab kuch <b>Gaz</b> mein — 120, 240, 400 gaz khud pehchan leta hai.'],
+     ['🏛','<b>Punjab mode</b>: Marla / Kanal / Sarsahi. Region toggle se switch karein.']
    ]},
   {icon:'📋', badge:'Feature', title:'Regulatory <span>Setbacks</span>', urdu:'قانونی حدِ تعمیر',
    points:[
@@ -2961,13 +3054,13 @@ const SLIDES = [
   {icon:'🏠', badge:'Feature', title:'Requirements + <span>Floor Plan</span>', urdu:'ضروریات اور نقشہ',
    points:[
      ['✅','Bedrooms, Bath, Kitchen, Lounge... tick karein, tadaad set karein.'],
-     ['🏢','Single / Double / Triple story chunein.'],
-     ['⚡','<b>Generate Floor Plan</b> — rooms khud arrange ho kar naqsha ban jata hai.']
+     ['🏢','Har item ke saath <b>Floor selector (G/1st/2nd)</b> — batayein kis floor par kya chahiye.'],
+     ['🖱️','Floor plan ban jaye to <b>rooms drag</b> kar ke jagah badal sakte hain.']
    ]},
   {icon:'📊', badge:'Feature', title:'BOM &amp; <span>Cost</span>', urdu:'میٹریل اور لاگت',
    points:[
-     ['🧱','Bricks, Cement, Sand, Tiles — wall length se khud calculate.'],
-     ['💰','Rates editable — total lagat live PKR mein badalti hai.'],
+     ['🧱','Bricks, Cement, Sand, Tiles — <b>qty khud bhi likh sakte hain</b> ya auto se aaye.'],
+     ['💰','Rates apni market ke hisaab se badlein — total foran update.'],
      ['🖨','Branded report print / PDF ban jati hai.']
    ]},
   {icon:'🧊', badge:'Feature', title:'3D <span>View</span>', urdu:'تین جہتی منظر',
@@ -3047,6 +3140,8 @@ const MANUAL_HTML = `
 <div class="m-step"><span class="m-num">1</span><span>Right sidebar mein <b>"1 · Plot Measurements"</b> mein Front, Back, Left, Right bharein. <span class="m-urdu">چاروں اطراف کی پیمائش درج کریں۔</span></span></div>
 <div class="m-step"><span class="m-num">2</span><span>Teerha (irregular) plot ho to <b>Diagonal</b> bhi bharein — is se rakba bilkul sahi banta hai.</span></div>
 <div class="m-step"><span class="m-num">3</span><span>Neeche <b>Sq Ft, Gaz, Marla</b> khud aa jayenge. Feet/Meters dropdown se unit badal sakte hain.</span></div>
+<div class="m-step"><span class="m-num">4</span><span><b>Region toggle</b> (Pakistani Unit Converter mein): <b>🌆 Karachi</b> chunein to sab kuch <b>Gaz</b> mein (Marla chhup jata hai), ya <b>🏛 Punjab</b> chunein to Marla/Kanal/Sarsahi. <span class="m-urdu">کراچی والے گز، پنجاب والے مرلہ۔</span></span></div>
+<div class="m-tip"><b>Karachi Tip:</b> App mashhoor plot sizes khud pehchanti hai — 30×60 = <b>200 گز</b>, 40×54 = <b>240 گز</b>. SBCA authority chunein to khud Gaz mode ho jata hai.</div>
 <div class="m-tip"><b>Tip:</b> Jab tak yeh 4 measurements na bharein, kuch features (Floor Plan, Setback) intezaar karte hain.</div>
 
 <h3>✏️ 2 · Drafting Board (Lakeerein & Rakba)</h3>
@@ -3071,13 +3166,17 @@ const MANUAL_HTML = `
 
 <h3>🏠 6 · Requirements + Floor Plan</h3>
 <div class="m-step"><span class="m-num">1</span><span>Right sidebar mein <b>"Requirements Checklist"</b> mein jo chahiye tick karein (Bedroom, Bath, Kitchen...).</span></div>
-<div class="m-step"><span class="m-num">2</span><span>Har item ka <b>+/−</b> se tadaad set karein. Floors (Single/Double/Triple) chunein.</span></div>
-<div class="m-step"><span class="m-num">3</span><span><b>⚡ Generate Floor Plan</b> dabayein — canvas ke upar <b>"🏠 Floor Plan"</b> tab mein naqsha ban jayega.</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Har item ka <b>+/−</b> se tadaad set karein. Aur dayein taraf <b>Floor selector (G / 1st / 2nd)</b> se batayein ke yeh kis floor par chahiye. <span class="m-urdu">مثلاً: Kitchen → G, Drawing Room → 1st</span></span></div>
+<div class="m-step"><span class="m-num">3</span><span>Floors (Single/Double/Triple) chunein → <b>⚡ Generate Floor Plan</b> dabayein.</span></div>
+<div class="m-step"><span class="m-num">4</span><span>Naqsha ban jayega. Ab <b>rooms ko mouse se drag</b> kar ke jagah badal sakte hain — jaise Kitchen ko corner mein le jayein ya Bath ko bedroom ke paas.</span></div>
+<div class="m-tip"><b>Tip:</b> Stairs ko kisi bhi ek floor par assign karein — multi-story mein app khud dono floors par rakh dega. Rooms drag karne se pehle floor tab (Ground/First) switch kar ke us floor ke rooms arrange karein.</div>
 
 <h3>📊 7 · BOM &amp; Cost Estimator</h3>
 <div class="m-step"><span class="m-num">1</span><span>Upar <b>"BOM &amp; Cost"</b> button dabayein.</span></div>
-<div class="m-step"><span class="m-num">2</span><span>Bricks, Cement, Sand, Tiles ki quantity khud nikalti hai. <b>Rates</b> apni market ke hisaab se badlein.</span></div>
-<div class="m-step"><span class="m-num">3</span><span><b>Print Branded Report</b> se PDF banayein.</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Bricks, Cement, Sand, Tiles ki <b>quantity fields editable</b> hain — auto se bhi aati hain (canvas walls se) ya <b>khud bhi likh sakte hain</b>. <span class="m-urdu">اگر آپ کو اپنا اندازہ معلوم ہے تو سیدھا ٹائپ کریں۔</span></span></div>
+<div class="m-step"><span class="m-num">3</span><span><b>Rates</b> apni local market ke hisaab se badlein (brick ki qeemat, cement bag, sand cft, tile sqft). Total foran update hota hai.</span></div>
+<div class="m-step"><span class="m-num">4</span><span><b>Print Branded Report</b> se professional PDF banayein — client ya contractor ko de dein.</span></div>
+<div class="m-tip"><b>Tip:</b> Qty fields mein jab tak aap khud kuch na likhein, wo canvas ki walls se auto-calculate hoti hain. Ek baar aap ne type kiya to aapki manual entry priority rehti hai.</div>
 
 <h3>🧊 8 · 3D View</h3>
 <div class="m-step"><span class="m-num">1</span><span>Upar <b>"3D View"</b> dabayein. Aapki 2D walls 3D deewarein ban jayengi.</span></div>
@@ -3315,24 +3414,36 @@ function pkr(n){
   return 'Rs '+Math.round(n).toLocaleString('en-PK');
 }
 
+/* track which qty fields the user has manually edited */
+const bomManual = {mBricks:false, mCement:false, mSand:false, mTiles:false};
+['mBricks','mCement','mSand','mTiles'].forEach(id=>{
+  $(id).addEventListener('input', ()=>{ bomManual[id]=true; recalcBOMAmounts(); });
+  $(id).addEventListener('focus', ()=>{ bomManual[id]=true; });
+});
+
 function updateBOM(){
   const q = bomQuantities();
-  const rB=+$('rBrick').value||0, rC=+$('rCement').value||0, rS=+$('rSand').value||0, rT=+$('rTile').value||0;
-  const aB=q.bricks*rB, aC=q.cementBags*rC, aS=q.sandCft*rS, aT=q.tilesSqft*rT;
   $('qWall').textContent = q.wallFt.toFixed(1)+' ft';
   $('qVol').textContent  = q.wallVol.toFixed(0)+' cft';
   $('qArea').textContent = q.tilesSqft.toLocaleString('en-PK')+' sqft';
-  $('mBricks').textContent = q.bricks.toLocaleString('en-PK')+' pcs';
-  $('mCement').textContent = q.cementBags+' bags';
-  $('mSand').textContent   = q.sandCft.toLocaleString('en-PK')+' cft';
-  $('mTiles').textContent  = q.tilesSqft.toLocaleString('en-PK')+' sqft';
+  /* auto-fill qty fields ONLY if user hasn't manually typed in them */
+  if(!bomManual.mBricks) $('mBricks').value = q.bricks;
+  if(!bomManual.mCement) $('mCement').value = q.cementBags;
+  if(!bomManual.mSand)   $('mSand').value   = q.sandCft;
+  if(!bomManual.mTiles)  $('mTiles').value  = q.tilesSqft;
+  recalcBOMAmounts();
+}
+function recalcBOMAmounts(){
+  const b=+$('mBricks').value||0, c=+$('mCement').value||0, s=+$('mSand').value||0, t=+$('mTiles').value||0;
+  const rB=+$('rBrick').value||0, rC=+$('rCement').value||0, rS=+$('rSand').value||0, rT=+$('rTile').value||0;
+  const aB=b*rB, aC=c*rC, aS=s*rS, aT=t*rT;
   $('aBricks').textContent = pkr(aB);
   $('aCement').textContent = pkr(aC);
   $('aSand').textContent   = pkr(aS);
   $('aTiles').textContent  = pkr(aT);
   $('grandTotal').textContent = pkr(aB+aC+aS+aT);
 }
-['rBrick','rCement','rSand','rTile'].forEach(id=>$(id).addEventListener('input', updateBOM));
+['rBrick','rCement','rSand','rTile'].forEach(id=>$(id).addEventListener('input', recalcBOMAmounts));
 $('btnBom').addEventListener('click', ()=>{ updateBOM(); $('bomModal').classList.add('open'); });
 $('bomClose').addEventListener('click', ()=> $('bomModal').classList.remove('open'));
 $('bomModal').addEventListener('click', e=>{ if(e.target.id==='bomModal') $('bomModal').classList.remove('open'); });
@@ -3459,6 +3570,9 @@ if($('svFront'))$('svFront').value=survey.front;
 $('svLeft').value=survey.left; $('svRight').value=survey.right; $('svRear').value=survey.rear;
 updateCornerNote();
 refreshGenBtn();
+/* default: Karachi (Gaz) mode */
+$('pkGaz').closest('.card').classList.add('karachi-mode');
+renderConverter();
 </script>
 </body>
 </html>
