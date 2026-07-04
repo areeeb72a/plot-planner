@@ -1,0 +1,3464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plot Planner Pro — 2D Drafting Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PLOT PLANNER PRO · PART 1 — UI LAYOUT + 2D DRAWING CANVAS
+   Design tokens (drafting-night theme)
+   ============================================================ */
+:root{
+  --ink:#0d1520;        /* app background          */
+  --panel:#131e2e;      /* sidebar panels          */
+  --panel2:#0f1826;
+  --line:#24344c;       /* borders                 */
+  --grid-minor:#16243a; /* canvas fine grid        */
+  --grid-major:#1d2f4a; /* canvas bold grid        */
+  --amber:#f0b444;      /* measurements / accents  */
+  --blue:#5aa2ff;       /* drawn geometry          */
+  --green:#4ade80;      /* area / success          */
+  --text:#e8eef7;
+  --muted:#8fa3bd;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--ink);color:var(--text);
+  font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;
+}
+.urdu{font-family:'Noto Nastaliq Urdu',serif;direction:rtl;line-height:2}
+
+/* ---------- Dashboard grid layout ---------- */
+.app{
+  display:grid;height:100vh;
+  grid-template-columns:220px 1fr 240px;
+  grid-template-rows:56px 1fr auto 40px;
+  grid-template-areas:
+    "head head head"
+    "left stage right"
+    "survey survey survey"
+    "foot foot foot";
+}
+
+/* ---------- Header ---------- */
+header{
+  grid-area:head;display:flex;align-items:center;gap:12px;
+  padding:0 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#14203280,transparent);
+}
+.logo{
+  width:34px;height:34px;border-radius:8px;border:1px solid var(--line);
+  display:grid;place-items:center;background:linear-gradient(135deg,#16233a,#0e1826);
+  box-shadow:0 0 16px rgba(90,162,255,.15) inset;
+}
+header h1{font-size:16px;font-weight:700}
+header h1 span{color:var(--amber)}
+header .tag{font-size:12px;color:var(--muted);margin-left:2px}
+header .urdu{margin-left:auto;color:var(--muted);font-size:13px}
+
+/* ---------- Left sidebar : tools ---------- */
+.left{
+  grid-area:left;background:var(--panel2);border-right:1px solid var(--line);
+  padding:14px 12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;
+}
+.sec-title{
+  font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--amber);margin:4px 2px 6px;
+}
+.tool{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 12px;border-radius:10px;cursor:pointer;text-align:left;
+  background:var(--panel);border:1px solid var(--line);color:var(--text);
+  font:inherit;font-weight:600;font-size:13px;transition:.15s;
+}
+.tool small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:1px}
+.tool .ic{font-size:16px;width:22px;text-align:center}
+.tool:hover{border-color:var(--blue)}
+.tool.active{
+  background:rgba(90,162,255,.13);border-color:var(--blue);
+  box-shadow:0 0 12px rgba(90,162,255,.18);
+}
+.tool.danger:hover{border-color:#f87171;color:#fca5a5}
+.hintbox{
+  margin-top:auto;background:var(--panel);border:1px dashed var(--line);
+  border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--muted);line-height:1.6;
+}
+.hintbox b{color:var(--amber)}
+kbd{
+  background:#0b1420;border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:4px;padding:0 5px;font-size:10.5px;font-family:inherit;
+}
+
+/* ---------- Stage (canvas) ---------- */
+.stage{grid-area:stage;position:relative;min-width:0;min-height:0}
+canvas{display:block;width:100%;height:100%;cursor:crosshair}
+.stage .watermark{
+  position:absolute;top:12px;left:14px;pointer-events:none;
+  font-size:11px;letter-spacing:1.5px;color:#3d5170;font-weight:600;
+}
+.toast{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(13,21,32,.92);border:1px solid var(--line);border-radius:9px;
+  padding:7px 16px;font-size:12.5px;color:var(--amber);pointer-events:none;
+  opacity:0;transition:opacity .25s;backdrop-filter:blur(6px);
+}
+.toast.show{opacity:1}
+
+/* ---------- Right sidebar : configuration ---------- */
+.right{
+  grid-area:right;background:var(--panel2);border-left:1px solid var(--line);
+  padding:14px 12px;overflow-y:auto;
+}
+.card{
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px;margin-bottom:12px;
+}
+.card h3{font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+.seg{display:flex;gap:6px}
+.seg button{
+  flex:1;padding:9px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:12.5px;
+  background:#0b1420;border:1px solid var(--line);color:var(--muted);transition:.15s;
+}
+.seg button.on{
+  background:rgba(90,162,255,.14);border-color:var(--blue);color:var(--text);
+  box-shadow:0 0 10px rgba(90,162,255,.15);
+}
+.stat{display:flex;justify-content:space-between;align-items:baseline;padding:6px 2px;border-bottom:1px dashed var(--line);font-size:12.5px}
+.stat:last-child{border-bottom:none}
+.stat .k{color:var(--muted)}
+.stat .v{color:var(--amber);font-weight:600;font-variant-numeric:tabular-nums}
+.stat .v.green{color:var(--green)}
+
+/* ---------- Bottom bar ---------- */
+footer{
+  grid-area:foot;display:flex;align-items:center;gap:22px;
+  padding:0 16px;border-top:1px solid var(--line);background:var(--panel2);
+  font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;
+}
+footer b{color:var(--text);font-weight:600}
+footer .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+footer .mode{color:var(--amber);font-weight:600}
+footer .coords{margin-left:auto;display:flex;gap:18px}
+
+/* ---------- Guide / Help (PPT slides + User Manual) ---------- */
+.help-overlay{position:fixed;inset:0;background:rgba(5,9,16,.8);backdrop-filter:blur(6px);display:none;place-items:center;z-index:200}
+.help-overlay.open{display:grid}
+.help-modal{width:min(920px,95vw);height:min(88vh,720px);background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.help-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.help-head h2{font-size:16px;font-weight:700}
+.help-head h2 span{color:var(--amber)}
+.help-tabs{display:flex;gap:6px;margin-left:12px}
+.help-tab{padding:7px 15px;border-radius:9px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;background:#0b1420;border:1px solid var(--line);color:var(--muted);transition:.15s}
+.help-tab.on{background:rgba(90,162,255,.15);border-color:var(--blue);color:#cfe2ff}
+.help-x{margin-left:auto;width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:#0b1420;color:var(--muted);cursor:pointer;font-size:16px}
+.help-x:hover{border-color:#f87171;color:#fca5a5}
+.help-body{flex:1;overflow:hidden;position:relative}
+
+/* --- slideshow --- */
+.slides{position:absolute;inset:0;display:flex;flex-direction:column}
+.slides.hide{display:none}
+.slide-view{flex:1;overflow-y:auto;padding:34px 40px;display:flex;flex-direction:column;justify-content:center}
+.slide{display:none;animation:slideIn .3s ease}
+.slide.on{display:block}
+@keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.slide .s-badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#06111f;background:var(--amber);padding:4px 12px;border-radius:20px;margin-bottom:16px}
+.slide h3{font-size:26px;font-weight:700;margin-bottom:6px;line-height:1.25}
+.slide h3 span{color:var(--amber)}
+.slide .s-urdu{font-size:16px;color:var(--muted);margin-bottom:20px;line-height:2}
+.slide .s-icon{font-size:52px;margin-bottom:18px;display:block}
+.slide ul{list-style:none;display:flex;flex-direction:column;gap:11px;max-width:640px}
+.slide li{display:flex;gap:12px;font-size:14.5px;line-height:1.55;color:var(--text)}
+.slide li .li-ic{flex:0 0 auto;width:26px;height:26px;border-radius:7px;background:rgba(90,162,255,.14);border:1px solid rgba(90,162,255,.3);display:grid;place-items:center;font-size:13px}
+.slide li b{color:var(--amber)}
+.slide-cover{text-align:center}
+.slide-cover .logo-big{width:70px;height:70px;margin:0 auto 20px;border-radius:16px;background:linear-gradient(135deg,#16233a,#0e1826);border:1px solid var(--line);display:grid;place-items:center;box-shadow:0 0 30px rgba(90,162,255,.2) inset}
+.slide-cover .credit{margin-top:24px;font-size:13px;color:var(--muted)}
+.slide-cover .credit b{color:var(--amber)}
+
+.slide-nav{display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--line);background:var(--panel2)}
+.slide-nav button{padding:9px 18px;border-radius:9px;cursor:pointer;font:inherit;font-weight:600;font-size:13px;background:#0b1420;border:1px solid var(--line);color:var(--text);transition:.15s}
+.slide-nav button:hover:not(:disabled){border-color:var(--blue)}
+.slide-nav button:disabled{opacity:.35;cursor:not-allowed}
+.slide-dots{display:flex;gap:6px;margin:0 auto}
+.slide-dots i{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer;transition:.15s}
+.slide-dots i.on{background:var(--amber);width:22px;border-radius:5px}
+.slide-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* --- manual --- */
+.manual{position:absolute;inset:0;overflow-y:auto;padding:26px 34px;display:none}
+.manual.show{display:block}
+.manual h3{font-size:18px;font-weight:700;color:var(--amber);margin:22px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+.manual h3:first-child{margin-top:0}
+.manual .m-step{display:flex;gap:12px;margin-bottom:12px;font-size:14px;line-height:1.6}
+.manual .m-num{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#06111f;font-weight:700;font-size:13px;display:grid;place-items:center}
+.manual .m-step b{color:var(--amber)}
+.manual .m-urdu{color:var(--muted);font-size:13px}
+.manual .m-tip{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.3);border-radius:9px;padding:10px 14px;margin:10px 0;font-size:13px;line-height:1.6}
+.manual .m-tip b{color:var(--green)}
+.manual .m-key{background:#0b1420;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 7px;font-size:12px;font-family:inherit}
+.manual .m-print{margin:14px 0}
+
+/* ---------- Requirements Checklist + Floor Plan ---------- */
+.board-tabs{
+  position:absolute;top:10px;left:14px;z-index:14;display:flex;align-items:center;gap:6px;
+  background:rgba(13,21,32,.85);border:1px solid var(--line);border-radius:10px;padding:5px 7px;backdrop-filter:blur(6px);
+}
+.bt-btn{
+  padding:7px 13px;border-radius:8px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;
+  background:transparent;border:1px solid transparent;color:var(--muted);transition:.15s;
+}
+.bt-btn.on{background:var(--panel);border-color:var(--line);color:var(--amber)}
+.bt-btn:hover:not(.on){color:var(--text)}
+.req{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:8px}
+.req:hover{background:#0f1a2b}
+.req input[type=checkbox]{
+  appearance:none;width:18px;height:18px;flex:0 0 auto;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:5px;background:#0b1420;position:relative;transition:.15s;
+}
+.req input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue)}
+.req input[type=checkbox]:checked::after{
+  content:"";position:absolute;left:5px;top:1.5px;width:5px;height:9px;
+  border:solid #06111f;border-width:0 2.5px 2.5px 0;transform:rotate(42deg);
+}
+.req .nm{flex:1;font-size:12.5px}
+.req .nm .urdu{display:block;font-size:11.5px;color:var(--muted);line-height:1.7}
+.ctr{display:flex;align-items:center;gap:0;opacity:.28;pointer-events:none;transition:.15s}
+.req.on .ctr{opacity:1;pointer-events:auto}
+.ctr button{
+  width:24px;height:24px;border:1px solid var(--line);background:#0b1420;color:var(--text);
+  cursor:pointer;font-size:14px;line-height:1;
+}
+.ctr button:first-child{border-radius:7px 0 0 7px}
+.ctr button:last-child{border-radius:0 7px 7px 0}
+.ctr button:hover{background:var(--blue);color:#06111f;border-color:var(--blue)}
+.ctr .v{min-width:26px;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);height:24px;line-height:23px;background:#0b1420;font-variant-numeric:tabular-nums;color:var(--amber);font-size:12px}
+.ctr select{height:24px;padding:0 5px;font-size:11px;border-radius:7px;width:auto;background:#0b1420;border:1px solid var(--line);color:var(--muted)}
+.floor-seg{display:flex;gap:6px;margin-top:10px}
+.floor-seg button{
+  flex:1;padding:8px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px;
+  background:#0b1420;border:1px solid var(--line);color:var(--muted);transition:.15s;
+}
+.floor-seg button.on{background:rgba(90,162,255,.14);border-color:var(--blue);color:var(--text)}
+.btn-gen{
+  width:100%;margin-top:12px;padding:11px;border-radius:10px;cursor:pointer;font:inherit;font-weight:600;font-size:13px;
+  background:linear-gradient(135deg,#3d7ee0,#2f5fb3);border:1px solid #4a8af0;color:#fff;
+  box-shadow:0 4px 18px rgba(61,126,224,.3);transition:.15s;
+}
+.btn-gen:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.floor-tabs{display:none;gap:5px;margin-left:12px}
+.floor-tabs button{padding:7px 12px;border-radius:8px;background:#0b1420;border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
+.floor-tabs button.on{background:rgba(240,180,68,.15);border-color:var(--amber);color:var(--amber)}
+
+/* ---------- Feature 3 : Import / Tracing ---------- */
+.sv-cornernote{font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5;font-style:italic}
+.sv-highlight{border:1px solid rgba(240,180,68,.4);border-radius:10px;padding:10px;background:rgba(240,180,68,.04)}
+.sv-highlight h4{color:var(--amber)!important}
+.trace-ctrl{
+  display:none;margin-top:8px;background:var(--panel);border:1px solid var(--blue);
+  border-radius:10px;padding:10px;
+}
+.trace-ctrl.show{display:block}
+.tc-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px}
+.tc-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px}
+.tc-x:hover{color:#fca5a5}
+.tc-op{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:7px}
+.tc-op input[type=range]{flex:1}
+.tc-lock{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);cursor:pointer;margin-top:2px}
+.tc-lock input{width:15px;height:15px;accent-color:var(--blue)}
+.tc-hint{font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.5;font-style:italic}
+
+/* drag-drop highlight over stage */
+.stage.dragover::after{
+  content:"📤 Drop file here · فائل یہاں چھوڑیں";
+  position:absolute;inset:12px;z-index:30;
+  display:grid;place-items:center;font-size:18px;font-weight:600;color:var(--blue);
+  background:rgba(90,162,255,.08);border:2.5px dashed var(--blue);border-radius:16px;
+  backdrop-filter:blur(2px);
+}
+
+/* import result toast area / format badge */
+.imp-badge{
+  position:absolute;top:12px;right:14px;z-index:16;display:none;align-items:center;gap:7px;
+  background:rgba(13,21,32,.9);border:1px solid var(--green);border-radius:9px;
+  padding:6px 12px;font-size:11.5px;color:var(--green);backdrop-filter:blur(6px);
+}
+.imp-badge.show{display:flex}
+
+/* ---------- 3D Viewport ---------- */
+.view3d{position:absolute;inset:0;display:none;z-index:15;background:#0a0f18}
+.view3d.open{display:block}
+.view3d canvas{width:100%;height:100%;display:block;cursor:grab}
+.view3d canvas:active{cursor:grabbing}
+.v3d-bar{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:16;
+  display:flex;align-items:center;gap:14px;
+  background:rgba(13,21,32,.9);border:1px solid var(--line);border-radius:12px;
+  padding:8px 14px;backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(0,0,0,.4);
+}
+.v3d-title{font-size:12.5px;font-weight:600;color:var(--amber);white-space:nowrap}
+.v3d-ctrls{display:flex;gap:6px}
+.v3d-btn{
+  padding:7px 11px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px;font-weight:600;
+  background:#0b1420;border:1px solid var(--line);color:var(--text);transition:.15s;white-space:nowrap;
+}
+.v3d-btn:hover{border-color:var(--blue)}
+.v3d-btn.on{background:rgba(90,162,255,.16);border-color:var(--blue);color:#cfe2ff}
+.v3d-btn.close{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.4);color:#fca5a5}
+.v3d-hint{
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:16;
+  font-size:11.5px;color:var(--muted);background:rgba(13,21,32,.8);
+  border:1px solid var(--line);border-radius:8px;padding:6px 14px;backdrop-filter:blur(6px);
+}
+
+/* ---------- Branding ---------- */
+.brand-mini{font-size:10.5px;color:var(--muted);line-height:1.25;margin-left:2px;border-left:1px solid var(--line);padding-left:10px}
+.brand-mini b{color:var(--amber);font-weight:600;display:block;font-size:11px}
+.brand-mini span{opacity:.75}
+footer .credit{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+footer .credit b{color:var(--amber);font-weight:600}
+footer .credit .spark{color:var(--blue)}
+.stage .watermark{line-height:1.5}
+.stage .watermark .wm-by{display:block;font-size:9.5px;color:#33475f;letter-spacing:1px;margin-top:2px}
+
+/* ---------- Part 5 : BOM + Collaboration + Export ---------- */
+.collab{margin-left:auto;display:flex;align-items:center;gap:8px}
+.collab .col-title{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.role-wrap{display:flex;align-items:center;gap:7px;background:#0b1420;border:1px solid var(--line);border-radius:9px;padding:5px 9px}
+.role-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+#roleSel{background:transparent;border:none;color:var(--text);font:inherit;font-size:12.5px;cursor:pointer}
+#roleSel:focus{outline:none}
+#roleSel option{background:#0f1826}
+.hbtn{
+  display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:9px;cursor:pointer;
+  background:#0b1420;border:1px solid var(--line);color:var(--text);font:inherit;font-weight:600;font-size:12.5px;transition:.15s;
+}
+.hbtn:hover{border-color:var(--blue)}
+.hbtn.gold{background:linear-gradient(135deg,#c99327,#a3751a);border-color:var(--amber);color:#1a1200}
+.hbtn .cnt{background:var(--blue);color:#06111f;border-radius:9px;font-size:10px;padding:1px 6px;font-weight:700}
+
+/* BOM modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(5,9,16,.72);backdrop-filter:blur(5px);
+  display:none;place-items:center;z-index:100;
+}
+.overlay.open{display:grid}
+.modal{
+  width:min(820px,94vw);max-height:88vh;overflow-y:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+.modal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.modal-head h2{font-size:16px;font-weight:700}
+.modal-head h2 span{color:var(--amber)}
+.modal-head .x{margin-left:auto;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:#0b1420;color:var(--muted);cursor:pointer;font-size:15px}
+.modal-head .x:hover{border-color:#f87171;color:#fca5a5}
+.modal .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.qty-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.qty-strip .q{background:#0b1420;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.qty-strip .q b{display:block;font-size:18px;color:var(--blue);font-variant-numeric:tabular-nums}
+.qty-strip .q small{color:var(--muted);font-size:10px;letter-spacing:.8px;text-transform:uppercase}
+table.bom{width:100%;border-collapse:collapse;font-size:13px}
+table.bom th{
+  text-align:left;font-size:10.5px;letter-spacing:1.1px;text-transform:uppercase;color:var(--amber);
+  padding:8px 10px;border-bottom:1px solid var(--line);
+}
+table.bom td{padding:9px 10px;border-bottom:1px dashed var(--line);vertical-align:middle}
+table.bom td .fm{display:block;font-size:10.5px;color:var(--muted);margin-top:2px}
+table.bom td.num{font-variant-numeric:tabular-nums;font-weight:600}
+table.bom input{
+  width:104px;background:#0b1420;border:1px solid var(--line);color:var(--amber);
+  border-radius:7px;padding:6px 9px;font:inherit;font-size:13px;font-weight:600;
+}
+table.bom input:focus{outline:none;border-color:var(--amber)}
+tr.total-row td{border-bottom:none;padding-top:14px}
+.grand{
+  background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.4);border-radius:11px;
+  padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:6px;
+}
+.grand .k{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.grand .v{font-size:23px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.bom-note{font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.6}
+
+/* comments slide-over */
+.cpanel{
+  position:fixed;top:0;right:-340px;width:330px;height:100vh;z-index:90;
+  background:var(--panel2);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;transition:right .28s ease;
+  box-shadow:-20px 0 50px rgba(0,0,0,.45);
+}
+.cpanel.open{right:0}
+.cpanel-head{display:flex;align-items:center;gap:8px;padding:14px;border-bottom:1px solid var(--line)}
+.cpanel-head h3{font-size:12px;font-weight:600;letter-spacing:1.3px;text-transform:uppercase;color:var(--amber)}
+.cpanel-head .x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer}
+.appr{padding:11px 14px;border-bottom:1px solid var(--line)}
+.appr .bar{height:7px;border-radius:5px;background:#0b1420;border:1px solid var(--line);overflow:hidden;margin:7px 0 5px}
+.appr .fill{height:100%;background:linear-gradient(90deg,#4ade80,#22c55e);width:0%;transition:width .3s}
+.appr .lbl{font-size:11px;color:var(--muted);line-height:1.5}
+.appr .lbl b{color:var(--green)}
+.cm-list{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.cm{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.cm .cm-top{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.cm .chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px}
+.cm .ts{margin-left:auto;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cm .tx{font-size:12.5px;line-height:1.55}
+.cm.approval .tx{color:var(--green);font-weight:600}
+.cm-input{padding:12px 14px;border-top:1px solid var(--line)}
+.cm-input textarea{
+  width:100%;height:60px;resize:none;background:#0b1420;border:1px solid var(--line);
+  color:var(--text);border-radius:9px;padding:8px 10px;font:inherit;font-size:12.5px;
+}
+.cm-input textarea:focus{outline:none;border-color:var(--blue)}
+.cm-actions{display:flex;gap:8px;margin-top:8px}
+.cm-actions button{flex:1}
+
+/* ---------- Part 4 : Geo-Energy Simulator ---------- */
+.sim{padding:0;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-top:6px}
+.sim-head{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;user-select:none}
+.sim-head h3{font-size:11px;font-weight:600;letter-spacing:1.3px;text-transform:uppercase;color:var(--amber)}
+.sim-head .chev{margin-left:auto;color:var(--muted);font-size:11px;transition:transform .25s}
+.sim.collapsed .chev{transform:rotate(-90deg)}
+.sim-body{padding:2px 12px 12px;display:block}
+.sim.collapsed .sim-body{display:none}
+
+.slider-row{margin:8px 0 12px}
+.slider-row .lab{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:6px}
+.slider-row .lab b{color:var(--amber);font-variant-numeric:tabular-nums;font-size:13px}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:4px;
+  background:linear-gradient(90deg,#1d2f4a,#f0b444 50%,#1d2f4a);outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:17px;height:17px;border-radius:50%;
+  background:#f0b444;border:2.5px solid #0d1520;cursor:pointer;
+  box-shadow:0 0 10px rgba(240,180,68,.6);
+}
+input[type=range]::-moz-range-thumb{
+  width:15px;height:15px;border-radius:50%;background:#f0b444;border:2.5px solid #0d1520;cursor:pointer;
+}
+
+.chk{display:flex;align-items:center;gap:9px;padding:6px 2px;cursor:pointer;user-select:none;font-size:12.5px}
+.chk input{
+  appearance:none;width:17px;height:17px;flex:0 0 auto;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:5px;background:#0b1420;position:relative;transition:.15s;
+}
+.chk input:checked{background:var(--blue);border-color:var(--blue)}
+.chk input:checked::after{
+  content:"";position:absolute;left:4.5px;top:1px;width:5px;height:9px;
+  border:solid #06111f;border-width:0 2.5px 2.5px 0;transform:rotate(42deg);
+}
+.chk .sw-ic{width:20px;text-align:center}
+
+.rec-box{
+  margin-top:11px;background:#0b1420;border:1px solid rgba(74,222,128,.3);
+  border-radius:10px;padding:10px 11px;
+}
+.rec-box h4{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--green);margin-bottom:6px}
+.rec-box .tip{font-size:11.5px;line-height:1.6;color:var(--text);margin-bottom:7px;padding-left:18px;position:relative}
+.rec-box .tip::before{content:"💡";position:absolute;left:0;top:1px;font-size:10px}
+.rec-box .tip:last-child{margin-bottom:0}
+.rec-box .tip b{color:var(--amber)}
+
+.mini-seg{display:flex;gap:5px;margin:6px 0 4px}
+.mini-seg button{
+  flex:1;padding:6px 2px;border-radius:7px;cursor:pointer;font:inherit;font-size:11.5px;
+  background:#0b1420;border:1px solid var(--line);color:var(--muted);transition:.15s;
+}
+.mini-seg button.on{background:rgba(90,162,255,.14);border-color:var(--blue);color:var(--text)}
+.mini-lab{font-size:11px;color:var(--muted);letter-spacing:.6px;margin-top:8px}
+
+/* ---------- Part 3 : Setback Engine + Field Survey ---------- */
+.rule-note{
+  margin-top:9px;font-size:11.5px;line-height:1.6;color:var(--muted);
+  background:#0b1420;border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+}
+.rule-note b{color:var(--amber)}
+.rule-note.active{border-color:rgba(240,180,68,.45);color:var(--text)}
+.preset-line{display:flex;justify-content:space-between;font-size:12px;padding:5px 2px;border-bottom:1px dashed var(--line)}
+.preset-line:last-child{border-bottom:none}
+.preset-line .k{color:var(--muted)} .preset-line .v{color:var(--text);font-weight:600}
+.badge{
+  display:none;margin-top:9px;align-items:center;gap:7px;
+  background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.45);
+  border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:600;color:#fca5a5;
+}
+.badge.show{display:flex}
+.badge .pulse{width:8px;height:8px;border-radius:50%;background:#f87171;box-shadow:0 0 8px #f87171;flex:0 0 auto;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.switch-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:6px 2px}
+.switch-row .k{color:var(--muted)}
+.sw2{position:relative;width:36px;height:20px;border-radius:20px;background:#0b1420;border:1px solid var(--line);cursor:pointer;transition:.2s;flex:0 0 auto}
+.sw2::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:var(--muted);top:2px;left:2px;transition:.2s}
+.sw2.on{background:rgba(248,113,113,.25);border-color:#f87171}
+.sw2.on::after{left:17px;background:#f87171}
+
+/* survey drawer */
+.survey{
+  grid-area:survey;background:var(--panel2);border-top:1px solid var(--line);
+  overflow:hidden;transition:max-height .25s ease;max-height:190px;
+}
+.survey.collapsed{max-height:38px}
+.survey-head{
+  display:flex;align-items:center;gap:10px;height:38px;padding:0 16px;cursor:pointer;user-select:none;
+  border-bottom:1px solid var(--line);
+}
+.survey-head h3{font-size:11.5px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--amber)}
+.survey-head .urdu{font-size:12px;color:var(--muted)}
+.sv-open-hint{font-size:11px;color:var(--blue);margin-left:14px;opacity:.85}
+.survey.collapsed .sv-open-hint{opacity:1;animation:hintPulse 2s ease-in-out infinite}
+@keyframes hintPulse{0%,100%{opacity:.55}50%{opacity:1}}
+.survey-head .chev{margin-left:auto;color:var(--muted);transition:transform .25s}
+.survey.collapsed .chev{transform:rotate(180deg)}
+.survey-body{
+  display:grid;grid-template-columns:1.1fr 1.4fr 1.6fr 1fr;gap:14px;padding:12px 16px;
+}
+.sv-group h4{font-size:10.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.pin-btns{display:flex;gap:7px;flex-wrap:wrap}
+.pin-btn{
+  display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:8px;cursor:pointer;
+  background:#0b1420;border:1px solid var(--line);color:var(--text);font:inherit;font-size:12px;transition:.15s;
+}
+.pin-btn:hover{border-color:var(--blue)}
+.pin-btn.armed{background:rgba(240,180,68,.15);border-color:var(--amber);color:var(--amber);box-shadow:0 0 10px rgba(240,180,68,.2)}
+.sv-row{display:flex;gap:8px;align-items:center;margin-bottom:7px}
+.sv-row label{font-size:12px;color:var(--muted);width:44px;flex:0 0 auto}
+.sv-row select,.sv-row input{
+  flex:1;background:#0b1420;border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:6px 9px;font:inherit;font-size:12.5px;
+}
+.sv-row select:focus,.sv-row input:focus{outline:none;border-color:var(--blue)}
+@media (max-width:1100px){.survey-body{grid-template-columns:1fr 1fr}}
+.field{margin-bottom:9px}
+.field label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);margin-bottom:4px}
+.field input[type=number],.field select{
+  width:100%;background:#0b1420;border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:7px 10px;font:inherit;font-size:13.5px;transition:.15s;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(90,162,255,.15)}
+.field input::placeholder{color:#4d617e}
+
+/* info tooltip */
+.tip{position:relative;display:inline-grid;place-items:center;width:15px;height:15px;
+  border-radius:50%;background:#0b1420;border:1px solid var(--line);color:var(--muted);
+  font-size:10px;cursor:help;}
+.tip::after{
+  content:attr(data-tip);position:absolute;bottom:135%;left:50%;transform:translateX(-50%);
+  width:190px;background:#0b1420;border:1px solid var(--blue);border-radius:8px;
+  padding:8px 10px;font-size:11px;line-height:1.5;color:var(--text);
+  opacity:0;pointer-events:none;transition:.15s;z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.5);
+}
+.tip:hover::after{opacity:1}
+
+.result-box{
+  margin-top:10px;background:#0b1420;border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;text-align:center;
+}
+.result-box .big{font-size:21px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums}
+.result-box .sm{font-size:11px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-top:2px}
+.warn-note{
+  display:none;margin-top:8px;font-size:11px;line-height:1.55;color:#fbbf24;
+  background:rgba(240,180,68,.07);border:1px solid rgba(240,180,68,.3);border-radius:8px;padding:7px 9px;
+}
+.pk-line{
+  display:flex;justify-content:space-between;padding:7px 2px;font-size:12.5px;
+  border-bottom:1px dashed var(--line);
+}
+.pk-line:last-child{border-bottom:none}
+.pk-line .k{color:var(--muted)}
+.pk-line .v{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.pk-total{
+  margin-top:9px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.35);
+  border-radius:9px;padding:9px 11px;text-align:center;font-size:13px;font-weight:700;color:var(--green);
+}
+.src-tag{font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+.src-tag b{color:var(--blue)}
+
+@media (max-width:900px){
+  .app{grid-template-columns:170px 1fr 190px}
+}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M3 21V8l7-5 11 6v12" stroke="#5aa2ff" stroke-width="1.6"/>
+        <path d="M3 21h18M9 21v-6h6v6" stroke="#f0b444" stroke-width="1.6"/>
+      </svg>
+    </div>
+    <h1>Plot Planner <span>Pro</span></h1>
+    <span class="tag">· گھر کے نقشے کا سمارٹ اوزار</span>
+    <div class="brand-mini">
+      <b>Rizwan's AI Agency</b>
+      <span>Developed by Syed Rizwan Ahmed</span>
+    </div>
+
+    <!-- ============ PART 5 : PROJECT COLLABORATION (header) ============ -->
+    <div class="collab">
+      <span class="col-title">Project Collaboration</span>
+      <div class="role-wrap">
+        <span class="role-dot" id="roleDot" style="background:#f0b444"></span>
+        <select id="roleSel">
+          <option value="Admin/Owner" selected>Admin/Owner</option>
+          <option value="Lead Architect">Lead Architect</option>
+          <option value="Structural Engineer">Structural Engineer</option>
+          <option value="Client">Client</option>
+        </select>
+      </div>
+      <button class="hbtn" id="btnHelp">❓ Guide</button>
+      <button class="hbtn" id="btnComments">💬 Comments <span class="cnt" id="cmCount">0</span></button>
+      <button class="hbtn" id="btnBom">📊 BOM &amp; Cost</button>
+      <button class="hbtn" id="btn3D">🧊 3D View</button>
+      <button class="hbtn" id="btnPngExport">🖼 PNG</button>
+      <button class="hbtn gold" id="btnExport">⬇ Export Project</button>
+    </div>
+  </header>
+
+  <!-- ============ LEFT : TOOLS ============ -->
+  <aside class="left">
+    <div class="sec-title">Tools · اوزار</div>
+
+    <button class="tool active" id="toolLine" data-tool="line">
+      <span class="ic">✏️</span>
+      <span>Draw Line<small>لکیر کھینچیں — click → move → click</small></span>
+    </button>
+
+    <button class="tool" id="toolArea" data-tool="area">
+      <span class="ic">📐</span>
+      <span>Measure Area<small>رقبہ ناپیں — points بنائیں، شکل بند کریں</small></span>
+    </button>
+
+    <button class="tool" id="toolUndo">
+      <span class="ic">↩️</span>
+      <span>Undo<small>آخری لکیر واپس</small></span>
+    </button>
+
+    <button class="tool danger" id="toolClear">
+      <span class="ic">🗑️</span>
+      <span>Clear Canvas<small>بورڈ صاف کریں</small></span>
+    </button>
+
+    <!-- ============ FEATURE 3 : IMPORT FILE ============ -->
+    <button class="tool" id="toolImport">
+      <span class="ic">📤</span>
+      <span>Import File<small>فائل اپ لوڈ — JSON, تصویر, DXF, SVG, 3D</small></span>
+    </button>
+    <input type="file" id="fileInput" accept=".json,.png,.jpg,.jpeg,.svg,.dxf,.obj,.stl" style="display:none">
+
+    <!-- tracing-image controls (appear after an image is loaded) -->
+    <div class="trace-ctrl" id="traceCtrl">
+      <div class="tc-row"><span>🖼 Tracing Image</span><button class="tc-x" id="traceRemove">✕</button></div>
+      <label class="tc-op">Opacity <input type="range" id="traceOp" min="10" max="100" value="55"></label>
+      <label class="tc-op">Scale <input type="range" id="traceScale" min="20" max="200" value="100"></label>
+      <label class="tc-lock"><input type="checkbox" id="traceLock"> Lock (move nahi hogi)</label>
+      <div class="tc-hint">Image ke upar "Draw Line" se trace karein</div>
+    </div>
+
+    <!-- ============ PART 4 : GEO-ENERGY SIMULATOR ============ -->
+    <div class="sim" id="simPanel">
+      <div class="sim-head" id="simHead">
+        <h3>🌞 Geo-Energy Simulator</h3>
+        <span class="chev">▼</span>
+      </div>
+      <div class="sim-body">
+
+        <div class="slider-row">
+          <div class="lab"><span>Time of Day · وقت</span><b id="simTimeLab">12:00</b></div>
+          <input type="range" id="simTime" min="6" max="18" step="0.25" value="12">
+        </div>
+
+        <div class="mini-lab">Season · موسم</div>
+        <div class="mini-seg" id="simSeason">
+          <button data-v="summer" class="on">☀ Summer</button>
+          <button data-v="winter">❄ Winter</button>
+        </div>
+
+        <div class="mini-lab">Plot Facing · پلاٹ کا رخ</div>
+        <div class="mini-seg" id="simFacing">
+          <button data-v="N" class="on">N</button><button data-v="S">S</button>
+          <button data-v="E">E</button><button data-v="W">W</button>
+        </div>
+
+        <div class="mini-lab" style="margin-top:10px">Overlays · تہیں</div>
+        <label class="chk"><input type="checkbox" id="ovSun"><span class="sw-ic">☀️</span>Sun Path</label>
+        <label class="chk"><input type="checkbox" id="ovWind"><span class="sw-ic">🌬️</span>Wind Patterns</label>
+        <label class="chk"><input type="checkbox" id="ovNoise"><span class="sw-ic">🔊</span>Noise Mapping</label>
+
+        <div class="rec-box" id="recBox">
+          <h4>Passive Design Tips</h4>
+          <div class="tip">Set plot facing &amp; overlays to get recommendations.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hintbox">
+      <b>Shortcuts:</b><br>
+      <kbd>L</kbd> Line &nbsp; <kbd>A</kbd> Area &nbsp; <kbd>Esc</kbd> Cancel<br>
+      <kbd>Ctrl+Z</kbd> Undo &nbsp; <kbd>Double-click</kbd> Close shape
+    </div>
+  </aside>
+
+  <!-- ============ CENTER : CANVAS ============ -->
+  <div class="stage">
+    <canvas id="cv"></canvas>
+
+    <!-- view tabs: drafting board vs generated floor plan -->
+    <div class="board-tabs" id="boardTabs">
+      <button class="bt-btn on" data-view="board">📐 Board · بورڈ</button>
+      <button class="bt-btn" data-view="floor">🏠 Floor Plan · نقشہ</button>
+      <span class="floor-tabs" id="floorTabs"></span>
+    </div>
+
+    <div class="watermark">PLOT PLANNER PRO · DRAFTING SHEET Nº 01
+      <span class="wm-by">DEVELOPED BY SYED RIZWAN AHMED — RIZWAN'S AI AGENCY</span>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div class="imp-badge" id="impBadge"></div>
+
+    <!-- ============ 3D VIEWPORT ============ -->
+    <div class="view3d" id="view3d">
+      <div class="v3d-bar">
+        <span class="v3d-title">🧊 3D View · تین جہتی منظر</span>
+        <div class="v3d-ctrls">
+          <button class="v3d-btn" id="v3dOrbit" title="Rotate / Zoom">🔄 Orbit</button>
+          <button class="v3d-btn" id="v3dWalk" title="Walk inside">🚶 Walk</button>
+          <button class="v3d-btn" id="v3dSun" title="Use Simulator sun">☀ Sun</button>
+          <button class="v3d-btn" id="v3dRoof" title="Toggle roof">🏠 Roof</button>
+          <button class="v3d-btn" id="v3dPng" title="Save 3D snapshot">🖼 PNG</button>
+          <button class="v3d-btn close" id="v3dClose" title="Back to 2D">✕ 2D</button>
+        </div>
+      </div>
+      <div class="v3d-hint" id="v3dHint">Mouse drag = rotate · Scroll = zoom · Walk mode: W/A/S/D + mouse</div>
+    </div>
+  </div>
+
+  <!-- ============ RIGHT : CONFIG ============ -->
+  <aside class="right">
+    <div class="card">
+      <h3>Scale · اسکیل</h3>
+      <div class="seg" id="segScale">
+        <button data-v="100" class="on">1 : 100</button>
+        <button data-v="50">1 : 50</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Units · یونٹ</h3>
+      <div class="seg" id="segUnit">
+        <button data-v="ft" class="on">Feet</button>
+        <button data-v="m">Meters</button>
+      </div>
+    </div>
+
+    <!-- ============ PART 2 : IRREGULAR PLOT MATH ENGINE ============ -->
+    <div class="card">
+      <h3>Irregular Plot Math Engine</h3>
+      <div class="urdu" style="font-size:12px;color:var(--muted);margin:-4px 0 10px">ٹیڑھے پلاٹ کا رقبہ — چار اطراف اور وتر</div>
+
+      <div class="field"><label>Side A (Front)
+        <span class="tip" data-tip="Triangulation: diagonal E splits the plot into two triangles — Triangle 1 (A, D, E) and Triangle 2 (B, C, E). Each triangle's area is found with Heron's Formula: √[s(s−a)(s−b)(s−c)].">i</span></label>
+        <input type="number" min="0" step="any" id="eA" placeholder="Enter Side A...">
+      </div>
+      <div class="field"><label>Side B (Right)
+        <span class="tip" data-tip="Second side of the plot, moving clockwise. Used in Triangle 2 (B, C, E) with Heron's Formula.">i</span></label>
+        <input type="number" min="0" step="any" id="eB" placeholder="Enter Side B...">
+      </div>
+      <div class="field"><label>Side C (Back)
+        <span class="tip" data-tip="Third side (back of plot). Used in Triangle 2 (B, C, E) with Heron's Formula.">i</span></label>
+        <input type="number" min="0" step="any" id="eC" placeholder="Enter Side C...">
+      </div>
+      <div class="field"><label>Side D (Left)
+        <span class="tip" data-tip="Fourth side of the plot. Used in Triangle 1 (A, D, E) with Heron's Formula.">i</span></label>
+        <input type="number" min="0" step="any" id="eD" placeholder="Enter Side D...">
+      </div>
+      <div class="field"><label>Diagonal E (وتر)
+        <span class="tip" data-tip="Corner-to-opposite-corner measurement. Providing it makes the calculation EXACT via triangulation. Without it, only an estimate is possible.">i</span></label>
+        <input type="number" min="0" step="any" id="eE" placeholder="Optional — for exact result...">
+      </div>
+
+      <div class="result-box">
+        <div class="big" id="engOut">—</div>
+        <div class="sm" id="engOutSub">Total Area</div>
+      </div>
+      <div class="warn-note" id="engWarn">⚠ Estimation only. For professional accuracy, input a diagonal or coordinates.</div>
+    </div>
+
+    <!-- ============ PART 2 : PAKISTANI REVENUE UNIT CONVERTER ============ -->
+    <div class="card">
+      <h3>Pakistani Unit Converter</h3>
+      <div class="src-tag" style="margin-bottom:8px">Source: <b id="pkSrc">—</b></div>
+
+      <div class="field"><label>Marla Standard · مرلہ معیار</label>
+        <select id="marlaStd">
+          <option value="272.25" selected>Rural / Traditional = 272.25 sq ft</option>
+          <option value="225">Lahore / Urban = 225 sq ft</option>
+          <option value="250">Commercial / Society = 250 sq ft</option>
+        </select>
+      </div>
+
+      <div class="pk-line"><span class="k">Square Feet</span><span class="v" id="pkSqft">—</span></div>
+      <div class="pk-line"><span class="k">Sq. Yards (گز)</span><span class="v" id="pkGaz">—</span></div>
+      <div class="pk-line"><span class="k">Marla (مرلہ)</span><span class="v" id="pkMarla">—</span></div>
+      <div class="pk-line"><span class="k">Kanal (کنال)</span><span class="v" id="pkKanal">—</span></div>
+      <div class="pk-line"><span class="k">Sarsahi (سرساہی)</span><span class="v" id="pkSarsahi">—</span></div>
+
+      <div class="pk-total" id="pkTotal">Enter measurements above</div>
+    </div>
+
+    <!-- ============ REQUIREMENTS CHECKLIST + FLOOR PLAN ============ -->
+    <div class="card">
+      <h3>Requirements Checklist</h3>
+      <div class="urdu" style="font-size:12px;color:var(--muted);margin:-4px 0 8px">جو چاہیے ٹک کریں — تعداد + / − سے</div>
+      <div id="reqList"></div>
+
+      <div style="font-size:11px;color:var(--muted);letter-spacing:.6px;margin-top:10px">Number of Floors · منزلیں</div>
+      <div class="floor-seg" id="floorSeg">
+        <button data-v="1" class="on">Single</button>
+        <button data-v="2">Double</button>
+        <button data-v="3">Triple</button>
+      </div>
+
+      <button class="btn-gen" id="btnGen" disabled>⚡ Generate Floor Plan · نقشہ بنائیں</button>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Pehle plot measurements bharein (Math Engine), phir yeh button chalega. Naqsha "Floor Plan" tab mein banega.</div>
+    </div>
+
+    <!-- ============ PART 3 : REGULATORY SETBACK ENGINE ============ -->
+    <div class="card">
+      <h3>Development Authority Rules</h3>
+      <div class="urdu" style="font-size:12px;color:var(--muted);margin:-4px 0 10px">قانونی حدِ تعمیر — سیٹ بیک انجن</div>
+
+      <div class="field"><label>Authority · ادارہ</label>
+        <select id="authority">
+          <option value="none" selected>— Select Authority —</option>
+          <option value="LDA">LDA (Lahore)</option>
+          <option value="CDA">CDA (Islamabad)</option>
+          <option value="RUDA">RUDA (Ravi Urban)</option>
+          <option value="SBCA">SBCA (Karachi) — گز basis</option>
+          <option value="PDA">PDA (Peshawar)</option>
+          <option value="QDA">QDA (Quetta)</option>
+        </select>
+      </div>
+
+      <div class="rule-note" id="ruleNote">Select an authority — setback lines will be drawn on the plot automatically based on its Marla size.</div>
+
+      <div id="cdaPresets" style="display:none">
+        <div class="preset-line"><span class="k">8 Marla preset</span><span class="v">30 × 60 ft</span></div>
+        <div class="preset-line"><span class="k">1 Kanal preset</span><span class="v">50 × 90 ft</span></div>
+        <div class="switch-row">
+          <span class="k">Basement planned? · بیسمنٹ</span>
+          <div class="sw2" id="swBasement" role="switch" aria-checked="false" tabindex="0"></div>
+        </div>
+      </div>
+
+      <div class="badge" id="cdaBadge"><span class="pulse"></span> CDA Compliant Basement Check Required</div>
+    </div>
+
+    <div class="card">
+      <h3>Drawing Stats · اعداد و شمار</h3>
+      <div class="stat"><span class="k">Lines drawn</span><span class="v" id="stLines">0</span></div>
+      <div class="stat"><span class="k">Total length</span><span class="v" id="stLen">0</span></div>
+      <div class="stat"><span class="k">Grid cell</span><span class="v" id="stCell">—</span></div>
+      <div class="stat"><span class="k">Last area</span><span class="v green" id="stArea">—</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Snapping</h3>
+      <div class="stat"><span class="k">Grid snap</span><span class="v" style="color:var(--green)">ON ●</span></div>
+      <div class="stat"><span class="k">Snap step</span><span class="v" id="stSnap">—</span></div>
+    </div>
+  </aside>
+
+  <!-- ============ PART 3 : DIGITAL FIELD SURVEY CHECKLIST ============ -->
+  <section class="survey" id="survey">
+    <div class="survey-head" id="surveyHead">
+      <h3>📋 Field Survey Inventory</h3>
+      <span class="urdu">فیلڈ سروے چیک لسٹ — سائٹ کی اصل حالت درج کریں</span>
+      <span class="sv-open-hint">👆 charon taraf kya hai, road width, pins — yahan sab</span>
+      <span class="chev">▼</span>
+    </div>
+    <div class="survey-body">
+
+      <div class="sv-group sv-highlight">
+        <h4>⭐ Charon Taraf Kya Hai? · ہمسائے / اطراف</h4>
+        <div class="sv-row"><label>Front</label>
+          <select id="svFront" class="svCtx">
+            <option value="road">🛣 Road / روڈ</option>
+            <option value="street">🚶 Street / گلی</option>
+            <option value="empty">⬜ Empty Plot / خالی</option>
+            <option value="1f">🏠 1-Floor House</option>
+            <option value="2f">🏢 2-Floor House</option>
+            <option value="park">🌳 Park / پارک</option>
+            <option value="commercial">🏪 Shops / دکانیں</option>
+          </select></div>
+        <div class="sv-row"><label>Right</label>
+          <select id="svRight" class="svCtx">
+            <option value="empty">⬜ Empty Plot / خالی</option>
+            <option value="1f">🏠 1-Floor House</option>
+            <option value="2f">🏢 2-Floor House</option>
+            <option value="road">🛣 Road / روڈ</option>
+            <option value="street">🚶 Street / گلی</option>
+            <option value="park">🌳 Park / پارک</option>
+            <option value="commercial">🏪 Shops / دکانیں</option>
+          </select></div>
+        <div class="sv-row"><label>Rear</label>
+          <select id="svRear" class="svCtx">
+            <option value="1f">🏠 1-Floor House</option>
+            <option value="empty">⬜ Empty Plot / خالی</option>
+            <option value="2f">🏢 2-Floor House</option>
+            <option value="road">🛣 Road / روڈ</option>
+            <option value="street">🚶 Street / گلی</option>
+            <option value="park">🌳 Park / پارک</option>
+            <option value="commercial">🏪 Shops / دکانیں</option>
+          </select></div>
+        <div class="sv-row"><label>Left</label>
+          <select id="svLeft" class="svCtx">
+            <option value="1f">🏠 1-Floor House</option>
+            <option value="empty">⬜ Empty Plot / خالی</option>
+            <option value="2f">🏢 2-Floor House</option>
+            <option value="road">🛣 Road / روڈ</option>
+            <option value="street">🚶 Street / گلی</option>
+            <option value="park">🌳 Park / پارک</option>
+            <option value="commercial">🏪 Shops / دکانیں</option>
+          </select></div>
+        <div class="sv-cornernote" id="cornerNote">Corner plot? Do se zyada taraf road/street chunein.</div>
+      </div>
+
+      <div class="sv-group">
+        <h4>Access Road · روڈ</h4>
+        <div class="sv-row"><label>Width</label>
+          <input type="number" min="0" step="any" id="svRoad" placeholder="feet e.g. 30">
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">Front road texture is drawn on the canvas at this scaled width.</div>
+      </div>
+
+      <div class="sv-group">
+        <h4>Utility Points · یوٹیلیٹی پن</h4>
+        <div class="pin-btns">
+          <button class="pin-btn" data-pin="water">💧 Water Connection</button>
+          <button class="pin-btn" data-pin="gas">🔥 Gas Meter</button>
+          <button class="pin-btn" data-pin="electric">⚡ Electric Pole</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:7px">Arm a pin, then click on the canvas to geo-tag it. <b style="color:var(--amber)">Esc</b> disarms.</div>
+      </div>
+
+      <div class="sv-group">
+        <h4>Soil Condition · مٹی</h4>
+        <div class="sv-row"><label>Type</label>
+          <select id="svSoil"><option value="sandy">Sandy · ریتلی</option><option value="clay">Clay · چکنی</option><option value="rocky">Rocky · پتھریلی</option></select></div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5" id="soilHint">Sandy: deeper foundation advised.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ BOTTOM : LIVE COORDS ============ -->
+  <footer>
+    <span class="dot"></span>
+    <span>Mode: <span class="mode" id="fMode">DRAW LINE</span></span>
+    <span id="fMsg">Click on the board to start a line</span>
+    <div class="coords">
+      <span>X: <b id="fX">0</b></span>
+      <span>Y: <b id="fY">0</b></span>
+      <span>Grid: <b id="fGX">0, 0</b></span>
+      <span id="fLive"></span>
+    </div>
+    <div class="credit"><span class="spark">◆</span> Developed by <b>Syed Rizwan Ahmed</b> · Rizwan's AI Agency</div>
+  </footer>
+</div>
+
+<!-- ============ PART 5 : BOM & COST ESTIMATOR (modal) ============ -->
+<div class="overlay" id="bomModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>📊 BOM &amp; Cost <span>Estimator</span></h2>
+      <button class="x" id="bomClose">✕</button>
+    </div>
+    <div class="sub urdu" style="font-size:13px">میٹریل کی خودکار فہرست اور تخمینہ لاگت — ریٹ بدلیں، ٹوٹل خود بدلے گا</div>
+
+    <div class="qty-strip">
+      <div class="q"><b id="qWall">0 ft</b><small>Total Wall Length (canvas)</small></div>
+      <div class="q"><b id="qVol">0 cft</b><small>Wall Volume (9" × 10 ft)</small></div>
+      <div class="q"><b id="qArea">0 sqft</b><small>Plot Area (math engine)</small></div>
+    </div>
+
+    <table class="bom">
+      <thead><tr>
+        <th style="width:32%">Material</th><th>Quantity</th><th>Rate (PKR) — editable</th><th style="text-align:right">Amount</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>🧱 Bricks (اینٹیں)<span class="fm">Wall L × 10 ft H × 0.75 ft × 13.5 bricks/cft</span></td>
+          <td class="num" id="mBricks">—</td>
+          <td><input type="number" min="0" step="any" id="rBrick" value="14"> /brick</td>
+          <td class="num" style="text-align:right" id="aBricks">—</td>
+        </tr>
+        <tr>
+          <td>🏗 Cement (سیمنٹ)<span class="fm">1:6 mortar ≈ 0.034 bag per cft of wall</span></td>
+          <td class="num" id="mCement">—</td>
+          <td><input type="number" min="0" step="any" id="rCement" value="1350"> /bag</td>
+          <td class="num" style="text-align:right" id="aCement">—</td>
+        </tr>
+        <tr>
+          <td>⏳ Sand (ریت)<span class="fm">≈ 0.26 cft per cft of wall volume</span></td>
+          <td class="num" id="mSand">—</td>
+          <td><input type="number" min="0" step="any" id="rSand" value="85"> /cft</td>
+          <td class="num" style="text-align:right" id="aSand">—</td>
+        </tr>
+        <tr>
+          <td>◻ Flooring / Tiles (ٹائلیں)<span class="fm">Matches calculated plot area exactly</span></td>
+          <td class="num" id="mTiles">—</td>
+          <td><input type="number" min="0" step="any" id="rTile" value="220"> /sqft</td>
+          <td class="num" style="text-align:right" id="aTiles">—</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="grand">
+      <span class="k">Total Estimated Construction Cost · کل تخمینہ</span>
+      <span class="v" id="grandTotal">Rs 0</span>
+    </div>
+    <div class="bom-note">⚠ Benchmarks: 9-inch brick wall, 10 ft standard height, 13.5 bricks/cft, 1:6 cement-sand mortar. Figures are planning estimates — final BOQ apne contractor/engineer se verify karein. Quantities update live jab aap canvas par walls draw karte hain ya Math Engine ka area badalte hain.</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="hbtn gold" id="btnBomPrint">🖨 Print Branded Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PART 5 : COMMENTS & APPROVALS (slide-over) ============ -->
+<aside class="cpanel" id="cpanel">
+  <div class="cpanel-head">
+    <h3>💬 Comments &amp; Approvals</h3>
+    <button class="x" id="cpClose">✕</button>
+  </div>
+  <div class="appr">
+    <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">Approval Progress</div>
+    <div class="bar"><div class="fill" id="apprFill"></div></div>
+    <div class="lbl" id="apprLbl">0 / 4 roles signed off</div>
+  </div>
+  <div class="cm-list" id="cmList"></div>
+  <div class="cm-input">
+    <textarea id="cmText" placeholder="Comment as current role... · تبصرہ لکھیں"></textarea>
+    <div class="cm-actions">
+      <button class="hbtn" id="cmAdd">➕ Add Comment</button>
+      <button class="hbtn gold" id="cmApprove">✓ Approve</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ============ GUIDE / HELP (PPT slides + User Manual) ============ -->
+<div class="help-overlay" id="helpOverlay">
+  <div class="help-modal">
+    <div class="help-head">
+      <h2>❓ Guide &amp; <span>Help</span></h2>
+      <div class="help-tabs">
+        <button class="help-tab on" data-htab="slides">📊 Feature Slides</button>
+        <button class="help-tab" data-htab="manual">📖 User Manual</button>
+      </div>
+      <button class="help-x" id="helpClose">✕</button>
+    </div>
+    <div class="help-body">
+
+      <!-- SLIDESHOW -->
+      <div class="slides" id="slidesWrap">
+        <div class="slide-view" id="slideView"></div>
+        <div class="slide-nav">
+          <button id="slidePrev">← Prev</button>
+          <div class="slide-dots" id="slideDots"></div>
+          <button id="slideNext">Next →</button>
+          <span class="slide-count" id="slideCount"></span>
+        </div>
+      </div>
+
+      <!-- MANUAL -->
+      <div class="manual" id="manualWrap">
+        <div class="m-print"><button class="hbtn gold" id="manualPrint">🖨 Print / PDF User Manual</button></div>
+        <div id="manualBody"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  window.THREE = THREE;               // expose globally for the main script
+  window.dispatchEvent(new Event('three-ready'));
+</script>
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+
+const state = {
+  tool: 'line',          // 'line' | 'area'
+  scale: 100,            // 1:100 or 1:50
+  unit: 'ft',            // 'ft' | 'm'
+  lines: [],             // [{a:[x,y], b:[x,y]}]  (pixel space)
+  polys: [],             // [{pts:[[x,y]...], area}] closed shapes
+  pending: null,         // line start point while drawing
+  polyPts: [],           // points while measuring area
+  mouse: [0,0],          // snapped mouse (px)
+  rawMouse: [0,0]
+};
+
+/* grid geometry:
+   one MAJOR cell = 1 unit (ft or m) of real length.
+   pixels per unit depends on scale → 1:50 is "zoomed in" 2× vs 1:100 */
+const GRID_MINOR = 5;                       // minor cells inside a major cell
+function pxPerUnit(){ return state.scale === 50 ? 48 : 24; }
+function minorStep(){ return pxPerUnit() / GRID_MINOR; }
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function snap(x, y){
+  const s = minorStep();
+  return [Math.round(x / s) * s, Math.round(y / s) * s];
+}
+function dist(a, b){ return Math.hypot(b[0]-a[0], b[1]-a[1]); }
+function toUnits(px){ return px / pxPerUnit(); }
+function fmtLen(px){
+  const v = toUnits(px);
+  return v.toFixed(2) + (state.unit === 'ft' ? ' ft' : ' m');
+}
+function fmtArea(px2){
+  const v = px2 / (pxPerUnit() * pxPerUnit());
+  return v.toFixed(2) + (state.unit === 'ft' ? ' sq ft' : ' m²');
+}
+/* ------------------------------------------------------------
+   PART 2 · §3 — CANVAS ↔ MATH ENGINE BRIDGE
+   Abstract Shoelace Algorithm (Coordinate Geometry).
+   Accepts ANY list of [x, y] coordinates — from the canvas today,
+   or from GPS / imported points in future parts — and returns the
+   enclosed area in the same square units as the input coordinates.
+   Formula:  Area = ½ |Σ (xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ)|
+   ------------------------------------------------------------ */
+function calculateCanvasPolygonArea(coordinates){
+  if(!coordinates || coordinates.length < 3) return 0;
+  let s = 0;
+  for(let i = 0; i < coordinates.length; i++){
+    const [x1, y1] = coordinates[i];
+    const [x2, y2] = coordinates[(i + 1) % coordinates.length];
+    s += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(s) / 2;
+}
+/* kept as an alias so all existing canvas code flows through the engine */
+const shoelace = calculateCanvasPolygonArea;
+let toastT;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+function resize(){
+  const r = cv.parentElement.getBoundingClientRect();
+  cv.width = r.width * devicePixelRatio;
+  cv.height = r.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+function drawGrid(w, h){
+  ctx.fillStyle = '#0d1520';
+  ctx.fillRect(0, 0, w, h);
+  const s = minorStep(), M = pxPerUnit();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-minor');
+  for(let x = 0; x <= w; x += s){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for(let y = 0; y <= h; y += s){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-major');
+  for(let x = 0; x <= w; x += M){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for(let y = 0; y <= h; y += M){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+}
+
+function lineLabel(a, b, px, color){
+  const mx = (a[0]+b[0])/2, my = (a[1]+b[1])/2;
+  let ang = Math.atan2(b[1]-a[1], b[0]-a[0]);
+  if(ang > Math.PI/2 || ang < -Math.PI/2) ang += Math.PI;
+  ctx.save();
+  ctx.translate(mx, my); ctx.rotate(ang);
+  ctx.font = '600 12px Space Grotesk'; ctx.textAlign = 'center';
+  const label = fmtLen(px);
+  const tw = ctx.measureText(label).width;
+  ctx.fillStyle = 'rgba(13,21,32,.9)';
+  ctx.fillRect(-tw/2 - 5, -20, tw + 10, 15);
+  ctx.fillStyle = color;
+  ctx.fillText(label, 0, -8);
+  ctx.restore();
+}
+
+function drawLineSeg(a, b, color, dash){
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.setLineDash(dash || []);
+  ctx.shadowColor = color; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+  ctx.restore();
+  // endpoints
+  [a, b].forEach(p => {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(p[0], p[1], 3.2, 0, 7); ctx.fill();
+  });
+}
+
+function draw(){
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if(!w || !h) return;
+  drawGrid(w, h);
+  if(typeof drawTraceLayer==='function') drawTraceLayer();  // Feature 3: tracing image under geometry
+
+  /* committed polygons (measured areas) */
+  state.polys.forEach(p => {
+    ctx.fillStyle = 'rgba(74,222,128,.08)';
+    ctx.beginPath(); p.pts.forEach((q,i)=> i ? ctx.lineTo(...q) : ctx.moveTo(...q));
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 1.8; ctx.stroke();
+    // centroid label
+    const cx = p.pts.reduce((s,q)=>s+q[0],0)/p.pts.length;
+    const cy = p.pts.reduce((s,q)=>s+q[1],0)/p.pts.length;
+    ctx.font = '700 13px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle = '#4ade80';
+    ctx.fillText(fmtArea(p.area), cx, cy);
+  });
+
+  /* committed lines */
+  state.lines.forEach(l => {
+    drawLineSeg(l.a, l.b, '#5aa2ff');
+    lineLabel(l.a, l.b, dist(l.a, l.b), '#f0b444');
+  });
+
+  /* live previews */
+  if(state.tool === 'line' && state.pending){
+    drawLineSeg(state.pending, state.mouse, '#f0b444', [7,6]);
+    lineLabel(state.pending, state.mouse, dist(state.pending, state.mouse), '#f0b444');
+  }
+  if(state.tool === 'area' && state.polyPts.length){
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 1.8; ctx.setLineDash([6,5]);
+    ctx.beginPath();
+    state.polyPts.forEach((q,i)=> i ? ctx.lineTo(...q) : ctx.moveTo(...q));
+    ctx.lineTo(...state.mouse); ctx.stroke(); ctx.setLineDash([]);
+    state.polyPts.forEach(p=>{ ctx.fillStyle='#4ade80'; ctx.beginPath(); ctx.arc(p[0],p[1],3.5,0,7); ctx.fill(); });
+    // highlight closing point
+    if(state.polyPts.length > 2 && dist(state.mouse, state.polyPts[0]) < 14){
+      ctx.strokeStyle = '#f0b444'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(state.polyPts[0][0], state.polyPts[0][1], 9, 0, 7); ctx.stroke();
+    }
+  }
+
+  /* snap crosshair */
+  const [sx, sy] = state.mouse;
+  ctx.strokeStyle = 'rgba(240,180,68,.75)'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(sx-8, sy); ctx.lineTo(sx+8, sy);
+  ctx.moveTo(sx, sy-8); ctx.lineTo(sx, sy+8);
+  ctx.stroke();
+}
+
+/* ============================================================
+   STATS / UI SYNC
+   ============================================================ */
+function syncStats(){
+  $('stLines').textContent = state.lines.length;
+  const tot = state.lines.reduce((s,l)=>s+dist(l.a,l.b),0);
+  $('stLen').textContent = fmtLen(tot);
+  $('stCell').textContent = '1 ' + (state.unit==='ft'?'ft':'m') + ' / cell';
+  $('stSnap').textContent = (1/GRID_MINOR).toFixed(1) + ' ' + state.unit;
+  const last = state.polys[state.polys.length-1];
+  $('stArea').textContent = last ? fmtArea(last.area) : '—';
+}
+
+function setTool(t){
+  state.tool = t; state.pending = null; state.polyPts = [];
+  document.querySelectorAll('.tool[data-tool]').forEach(b=>b.classList.toggle('active', b.dataset.tool===t));
+  $('fMode').textContent = t === 'line' ? 'DRAW LINE' : 'MEASURE AREA';
+  $('fMsg').textContent = t === 'line'
+    ? 'Click on the board to start a line'
+    : 'Click points around the shape · double-click or click first point to close';
+  draw();
+}
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+cv.addEventListener('mousemove', e=>{
+  const r = cv.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  state.rawMouse = [x, y];
+  state.mouse = snap(x, y);
+  $('fX').textContent = Math.round(x);
+  $('fY').textContent = Math.round(y);
+  $('fGX').textContent = toUnits(state.mouse[0]).toFixed(1) + ', ' + toUnits(state.mouse[1]).toFixed(1) + ' ' + state.unit;
+  $('fLive').textContent =
+    (state.tool==='line' && state.pending) ? '↔ ' + fmtLen(dist(state.pending, state.mouse)) :
+    (state.tool==='area' && state.polyPts.length>1) ? '▲ ' + fmtArea(shoelace([...state.polyPts, state.mouse])) : '';
+  draw();
+});
+
+cv.addEventListener('click', ()=>{
+  const p = [...state.mouse];
+  if(state.tool === 'line'){
+    if(!state.pending){ state.pending = p; $('fMsg').textContent = 'Move and click again to finish the line · Esc to cancel'; }
+    else {
+      if(dist(state.pending, p) > 2) state.lines.push({a: state.pending, b: p});
+      state.pending = null;
+      $('fMsg').textContent = 'Line saved ✓ — click to start the next one';
+      syncStats();
+    }
+  } else { // area
+    if(state.polyPts.length > 2 && dist(p, state.polyPts[0]) < 14) return closePoly();
+    state.polyPts.push(p);
+  }
+  draw();
+});
+
+cv.addEventListener('dblclick', e=>{
+  e.preventDefault();
+  if(state.tool === 'area' && state.polyPts.length > 2) closePoly();
+});
+
+function closePoly(){
+  const area = shoelace(state.polyPts);
+  state.polys.push({pts: [...state.polyPts], area});
+  toast('Area measured: ' + fmtArea(area) + '  ·  رقبہ ناپ لیا گیا ✓');
+  state.polyPts = [];
+  syncStats(); draw();
+}
+
+/* tools */
+$('toolLine').addEventListener('click', ()=>setTool('line'));
+$('toolArea').addEventListener('click', ()=>setTool('area'));
+$('toolUndo').addEventListener('click', undo);
+$('toolClear').addEventListener('click', ()=>{
+  state.lines = []; state.polys = []; state.pending = null; state.polyPts = [];
+  if(typeof survey !== 'undefined') survey.pins = [];
+  toast('Canvas cleared · بورڈ صاف ہو گیا');
+  syncStats(); draw();
+});
+function undo(){
+  if(state.pending){ state.pending = null; }
+  else if(state.polyPts.length){ state.polyPts.pop(); }
+  else if(state.lines.length){ state.lines.pop(); }
+  else if(state.polys.length){ state.polys.pop(); }
+  syncStats(); draw();
+}
+
+/* keyboard */
+window.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){ state.pending = null; state.polyPts = []; draw(); }
+  if(e.key.toLowerCase() === 'l') setTool('line');
+  if(e.key.toLowerCase() === 'a') setTool('area');
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); }
+});
+
+/* segmented controls */
+function seg(id, cb){
+  $(id).querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+    $(id).querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); cb(b.dataset.v);
+  }));
+}
+seg('segScale', v=>{ state.scale = +v; syncStats(); draw(); toast('Scale 1:' + v + ' — grid rescaled'); });
+seg('segUnit',  v=>{ state.unit = v; syncStats(); draw(); });
+
+/* ============================================================
+   PART 2 · §1 — IRREGULAR PLOT MATH ENGINE
+   ------------------------------------------------------------
+   Heron's Formula:      area = √[ s(s−a)(s−b)(s−c) ],  s = perimeter/2
+   Triangulation:        diagonal E splits quad into
+                         Triangle 1 (A, D, E)  +  Triangle 2 (B, C, E)
+   Fallback (no E):      Average Length × Average Width  →  estimate
+   ============================================================ */
+const FT_PER_M = 3.28084;
+
+/* Heron's Formula for one triangle — returns 0 if sides can't form one */
+function heronArea(a, b, c){
+  const s = (a + b + c) / 2;
+  const t = s * (s - a) * (s - b) * (s - c);
+  return t > 0 ? Math.sqrt(t) : 0;
+}
+
+/* Core engine: takes the four sides + optional diagonal (all in FEET),
+   returns { sqft, exact } where exact=false means fallback estimate. */
+function irregularPlotArea(A, B, C, D, E){
+  if(E && E > 0){
+    /* exact triangulated result */
+    const t1 = heronArea(A, D, E);   // Triangle 1: sides A, D, diagonal E
+    const t2 = heronArea(B, C, E);   // Triangle 2: sides B, C, diagonal E
+    if(t1 > 0 && t2 > 0) return { sqft: t1 + t2, exact: true };
+    /* diagonal inconsistent with sides → fall through to estimate */
+  }
+  /* fallback: Average Length × Average Width */
+  const est = ((A + C) / 2) * ((B + D) / 2);
+  return { sqft: est, exact: false };
+}
+
+/* read engine inputs (respecting the global Feet/Meters unit) → feet */
+function engInput(id){
+  const v = parseFloat($(id).value);
+  if(!v || v <= 0) return 0;
+  return state.unit === 'm' ? v * FT_PER_M : v;
+}
+
+function runEngine(){
+  const A = engInput('eA'), B = engInput('eB'), C = engInput('eC'), D = engInput('eD'), E = engInput('eE');
+  if(!(A && B && C && D)){
+    $('engOut').textContent = '—';
+    $('engOutSub').textContent = 'Total Area';
+    $('engWarn').style.display = 'none';
+    return;
+  }
+  const r = irregularPlotArea(A, B, C, D, E);
+  $('engOut').textContent = r.sqft.toLocaleString('en-PK', {maximumFractionDigits: 1}) + ' sq ft';
+  $('engOutSub').textContent = r.exact ? 'Exact · Heron triangulation ✓' : 'Estimated area';
+  $('engWarn').style.display = r.exact ? 'none' : 'block';
+  setActiveArea(r.sqft, 'Math Engine');
+}
+['eA','eB','eC','eD','eE'].forEach(id => $(id).addEventListener('input', runEngine));
+
+/* ============================================================
+   PART 2 · §2 — PAKISTANI REVENUE UNIT CONVERTER
+   ------------------------------------------------------------
+   1 Marla  = 225 / 250 / 272.25 sq ft (standard selected by user)
+   1 Kanal  = 20 Marlas
+   1 Marla  = 9 Sarsahi
+   ============================================================ */
+let activeArea = { sqft: 0, src: '—' };
+
+function setActiveArea(sqft, src){
+  activeArea = { sqft, src };
+  renderConverter();
+}
+
+function renderConverter(){
+  const { sqft, src } = activeArea;
+  $('pkSrc').textContent = src;
+  if(!sqft){
+    ['pkSqft','pkGaz','pkMarla','pkKanal','pkSarsahi'].forEach(i => $(i).textContent = '—');
+    $('pkTotal').textContent = 'Enter measurements above';
+    return;
+  }
+  const marlaSize = parseFloat($('marlaStd').value);   // sq ft per marla
+  const marlas    = sqft / marlaSize;                  // total marlas (decimal)
+  const kanals    = marlas / 20;                       // 1 kanal = 20 marla
+  const sarsahis  = marlas * 9;                        // 1 marla = 9 sarsahi
+
+  $('pkSqft').textContent    = sqft.toLocaleString('en-PK', {maximumFractionDigits: 1});
+  $('pkGaz').textContent     = (sqft / 9).toLocaleString('en-PK', {maximumFractionDigits: 1});
+  $('pkMarla').textContent   = marlas.toFixed(2);
+  $('pkKanal').textContent   = kanals.toFixed(3);
+  $('pkSarsahi').textContent = sarsahis.toFixed(1);
+
+  /* composite breakdown: "1 Kanal, 0 Marla, 0.0 Sarsahi" */
+  const wholeKanal   = Math.floor(marlas / 20);
+  const remMarlaDec  = marlas - wholeKanal * 20;
+  const wholeMarla   = Math.floor(remMarlaDec);
+  const remSarsahi   = (remMarlaDec - wholeMarla) * 9;
+  $('pkTotal').textContent =
+    `Total: ${wholeKanal} Kanal, ${wholeMarla} Marla, ${remSarsahi.toFixed(1)} Sarsahi`;
+}
+$('marlaStd').addEventListener('change', renderConverter);
+
+/* canvas "Measure Area" now feeds the converter too (px² → sq ft) */
+const _closePoly = closePoly;
+closePoly = function(){
+  const areaPx = calculateCanvasPolygonArea(state.polyPts);
+  _closePoly();
+  const sqft = areaPx / (pxPerUnit() * pxPerUnit()) * (state.unit === 'm' ? 10.7639 : 1);
+  setActiveArea(sqft, 'Canvas Measurement');
+};
+
+/* re-run engine when global unit changes so labels stay honest */
+seg('segUnit', v => { state.unit = v; syncStats(); draw(); runEngine(); });
+
+/* ============================================================
+   PART 3 · §1 — REGULATORY SETBACK ENGINE
+   ------------------------------------------------------------
+   Modular rules: each authority maps a plot size (in Marlas)
+   to an array of setback specs { edge: 'front'|'rear', ft, color, label }.
+   The canvas then offsets the matching plot edge inward by `ft`
+   and renders a dashed "no-build" line.
+   ============================================================ */
+const SETBACK_RULES = {
+  /* LDA & RUDA share residential setback logic (Marla basis) */
+  LDA: marla => {
+    if(marla >= 3 && marla <= 5)
+      return [{edge:'front', ft:5, color:'#fb923c', label:"5' FRONT SETBACK"}];
+    if(marla >= 10)
+      return [{edge:'front', ft:5, color:'#fb923c', label:"5' FRONT SETBACK"},
+              {edge:'rear',  ft:5, color:'#f87171', label:"5' REAR SETBACK"}];
+    return [];
+  },
+  RUDA: marla => SETBACK_RULES.LDA(marla),
+  PDA:  marla => SETBACK_RULES.LDA(marla),
+  QDA:  marla => SETBACK_RULES.LDA(marla),
+  /* CDA: strict rear ventilation setback is always validated */
+  CDA: marla => [{edge:'rear', ft:5, color:'#f87171', label:"5' REAR SETBACK (VENTILATION)"}],
+  /* SBCA Karachi works on SQUARE YARDS (گز), not Marlas.
+     Indicative residential slabs — verify final values with SBCA: */
+  SBCA: (_m, gaz) => {
+    if(!gaz) return [];
+    if(gaz <= 120) return [];                                    // compact housing — no mandatory setback
+    if(gaz < 400)  return [{edge:'front', ft:5,  color:'#fb923c', label:"5' FRONT SETBACK"}];
+    return [{edge:'front', ft:10, color:'#fb923c', label:"10' FRONT SETBACK"},
+            {edge:'rear',  ft:5,  color:'#f87171', label:"5' REAR SETBACK"}];
+  }
+};
+
+const regState = { authority:'none', basement:false };
+
+/* plot size helpers — Marlas (Punjab/KP/Balochistan) and Gaz (Karachi) */
+function plotMarlas(){
+  return activeArea.sqft ? activeArea.sqft / parseFloat($('marlaStd').value) : 0;
+}
+function plotGaz(){
+  return activeArea.sqft ? activeArea.sqft / 9 : 0;   // 1 sq yard (گز) = 9 sq ft
+}
+
+/* ------------------------------------------------------------
+   Plot boundary resolver.
+   Priority 1: the last polygon the user closed on the canvas.
+   Priority 2: a "virtual plot" rectangle built from the Math
+   Engine sides (avg width × avg depth), auto-fitted to canvas.
+   Returns { pts, ppf (px per foot), virtual } or null.
+   ------------------------------------------------------------ */
+function getPlotPoly(){
+  if(state.polys.length){
+    return { pts: state.polys[state.polys.length-1].pts, ppf: pxPerUnit() / (state.unit==='m'?FT_PER_M:1), virtual:false };
+  }
+  const A=engInput('eA'), B=engInput('eB'), C=engInput('eC'), D=engInput('eD');
+  if(!(A&&B&&C&&D)) return null;
+  const W=(A+C)/2, H=(B+D)/2;              // feet
+  const cw=cv.clientWidth, ch=cv.clientHeight;
+  let ppf = pxPerUnit() / (state.unit==='m'?FT_PER_M:1);
+  const maxW=cw*0.55, maxH=ch*0.72;
+  if(W*ppf>maxW || H*ppf>maxH) ppf = Math.min(maxW/W, maxH/H);   // auto-fit
+  const x0=(cw-W*ppf)/2, y0=(ch-H*ppf)/2;
+  return { pts:[[x0,y0],[x0+W*ppf,y0],[x0+W*ppf,y0+H*ppf],[x0,y0+H*ppf]], ppf, virtual:true };
+}
+
+/* front = bottom-most edge on screen, rear = top-most */
+function plotEdges(pts){
+  const edges = pts.map((p,i)=>({p1:p, p2:pts[(i+1)%pts.length]}));
+  edges.forEach(e=> e.my=(e.p1[1]+e.p2[1])/2);
+  const front = edges.reduce((a,b)=> b.my>a.my?b:a);
+  const rear  = edges.reduce((a,b)=> b.my<a.my?b:a);
+  return {front, rear, edges};
+}
+
+/* dashed inward-offset line for one setback spec */
+function drawSetbackLine(edge, spec, ppf, centroid){
+  const {p1,p2}=edge;
+  const dx=p2[0]-p1[0], dy=p2[1]-p1[1], len=Math.hypot(dx,dy)||1;
+  let nx=-dy/len, ny=dx/len;
+  /* make normal point toward plot centroid (inward) */
+  const mx=(p1[0]+p2[0])/2, my=(p1[1]+p2[1])/2;
+  if((centroid[0]-mx)*nx + (centroid[1]-my)*ny < 0){ nx=-nx; ny=-ny; }
+  const off=spec.ft*ppf;
+  const a=[p1[0]+nx*off, p1[1]+ny*off], b=[p2[0]+nx*off, p2[1]+ny*off];
+  ctx.save();
+  ctx.strokeStyle=spec.color; ctx.lineWidth=2; ctx.setLineDash([9,6]);
+  ctx.shadowColor=spec.color; ctx.shadowBlur=5;
+  ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.translate((a[0]+b[0])/2,(a[1]+b[1])/2);
+  let ang=Math.atan2(b[1]-a[1],b[0]-a[0]); if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
+  ctx.rotate(ang);
+  ctx.font='700 10px Space Grotesk'; ctx.textAlign='center';
+  const tw=ctx.measureText(spec.label).width;
+  ctx.fillStyle='rgba(13,21,32,.9)'; ctx.fillRect(-tw/2-4,-7,tw+8,13);
+  ctx.fillStyle=spec.color; ctx.fillText(spec.label,0,3);
+  ctx.restore();
+}
+
+function drawSetbacks(plot){
+  if(regState.authority==='none') return;
+  const specs = SETBACK_RULES[regState.authority](plotMarlas(), plotGaz());
+  if(!specs.length) return;
+  const {front,rear}=plotEdges(plot.pts);
+  const cxr=plot.pts.reduce((s,p)=>s+p[0],0)/plot.pts.length;
+  const cyr=plot.pts.reduce((s,p)=>s+p[1],0)/plot.pts.length;
+  specs.forEach(s=> drawSetbackLine(s.edge==='front'?front:rear, s, plot.ppf, [cxr,cyr]));
+}
+
+/* ============================================================
+   PART 3 · §2 — DIGITAL FIELD SURVEY (state + canvas overlays)
+   ============================================================ */
+const survey = { roadW:0, pins:[], pinMode:null, front:'road', left:'1f', right:'empty', rear:'1f', soil:'sandy' };
+const PIN_META = {
+  water:   {ic:'💧', label:'Water',    color:'#38bdf8'},
+  gas:     {ic:'🔥', label:'Gas',      color:'#fb923c'},
+  electric:{ic:'⚡', label:'Electric', color:'#facc15'}
+};
+const CTX_LABEL = {
+  empty:'Empty Plot · خالی', '1f':'1-Floor House 🏠', '2f':'2-Floor House 🏢',
+  road:'ROAD · روڈ 🛣', street:'Street · گلی 🚶', park:'Park · پارک 🌳', commercial:'Shops · دکانیں 🏪'
+};
+const CTX_COLOR = {
+  empty:'#7e94b5', '1f':'#8fa3bd', '2f':'#a9bcd6',
+  road:'#f0b444', street:'#facc15', park:'#4ade80', commercial:'#c084fc'
+};
+
+/* textured road band in front of the plot */
+function drawSurveyRoad(plot){
+  if(!survey.roadW) return;
+  const {front}=plotEdges(plot.pts);
+  const {p1,p2}=front;
+  const dx=p2[0]-p1[0], dy=p2[1]-p1[1], len=Math.hypot(dx,dy)||1;
+  let nx=-dy/len, ny=dx/len;
+  const cxr=plot.pts.reduce((s,p)=>s+p[0],0)/plot.pts.length;
+  const cyr=plot.pts.reduce((s,p)=>s+p[1],0)/plot.pts.length;
+  if((cxr-(p1[0]+p2[0])/2)*nx + (cyr-(p1[1]+p2[1])/2)*ny > 0){ nx=-nx; ny=-ny; }  // outward
+  const d=Math.min(survey.roadW*plot.ppf, 90);
+  const ext=26;                                     // extend road past plot corners
+  const ux=dx/len, uy=dy/len;
+  const q1=[p1[0]-ux*ext,p1[1]-uy*ext], q2=[p2[0]+ux*ext,p2[1]+uy*ext];
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(...q1); ctx.lineTo(...q2);
+  ctx.lineTo(q2[0]+nx*d,q2[1]+ny*d); ctx.lineTo(q1[0]+nx*d,q1[1]+ny*d);
+  ctx.closePath();
+  ctx.fillStyle='#202c40'; ctx.fill();
+  ctx.clip();
+  /* asphalt hatch texture */
+  ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+  const span=Math.hypot(q2[0]-q1[0],q2[1]-q1[1])+d*2;
+  for(let i=-span;i<span;i+=9){
+    ctx.beginPath();
+    ctx.moveTo(q1[0]+ux*i, q1[1]+uy*i);
+    ctx.lineTo(q1[0]+ux*(i+d)+nx*d, q1[1]+uy*(i+d)+ny*d);
+    ctx.stroke();
+  }
+  /* center dash */
+  ctx.strokeStyle='rgba(240,180,68,.6)'; ctx.lineWidth=2; ctx.setLineDash([13,10]);
+  ctx.beginPath();
+  ctx.moveTo(q1[0]+nx*d/2,q1[1]+ny*d/2); ctx.lineTo(q2[0]+nx*d/2,q2[1]+ny*d/2); ctx.stroke();
+  ctx.restore();
+  ctx.font='700 11px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='#93a8c4';
+  ctx.fillText('ACCESS ROAD '+survey.roadW+' ft — روڈ', (q1[0]+q2[0])/2+nx*d/2, (q1[1]+q2[1])/2+ny*d/2-8);
+}
+
+/* neighbour context labels on ALL FOUR edges (front, rear, left, right) */
+function drawSurveyContext(plot){
+  const {edges,front,rear}=plotEdges(plot.pts);
+  const cxr=plot.pts.reduce((s,p)=>s+p[0],0)/plot.pts.length;
+  const cyr=plot.pts.reduce((s,p)=>s+p[1],0)/plot.pts.length;
+  const side=edges.filter(e=>e!==front&&e!==rear);
+  const leftE  = side.reduce((a,b)=> (b.p1[0]+b.p2[0])<(a.p1[0]+a.p2[0])?b:a, side[0]);
+  const rightE = side.reduce((a,b)=> (b.p1[0]+b.p2[0])>(a.p1[0]+a.p2[0])?b:a, side[0]);
+  /* front label is skipped only when a road band is already drawn there (avoids overlap) */
+  const items=[
+    [front,  survey.front, !survey.roadW || (survey.front!=='road'&&survey.front!=='street')],
+    [rear,   survey.rear,  true],
+    [leftE,  survey.left,  true],
+    [rightE, survey.right, true]
+  ];
+  items.forEach(([e,val,show])=>{
+    if(!e || !show || !val) return;
+    const mx=(e.p1[0]+e.p2[0])/2, my=(e.p1[1]+e.p2[1])/2;
+    const dx=e.p2[0]-e.p1[0], dy=e.p2[1]-e.p1[1], len=Math.hypot(dx,dy)||1;
+    let nx=-dy/len, ny=dx/len;
+    if((cxr-mx)*nx + (cyr-my)*ny > 0){ nx=-nx; ny=-ny; }   // outward
+    const col=CTX_COLOR[val]||'#7e94b5';
+    const label=CTX_LABEL[val]||val;
+    ctx.save();
+    ctx.translate(mx+nx*26, my+ny*26);
+    let ang=Math.atan2(dy,dx); if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
+    ctx.rotate(ang);
+    ctx.font='600 11px Space Grotesk'; ctx.textAlign='center';
+    const tw=ctx.measureText(label).width;
+    /* subtle chip behind for readability */
+    ctx.fillStyle='rgba(13,21,32,.78)';
+    ctx.fillRect(-tw/2-5,-9,tw+10,15);
+    ctx.fillStyle=col;
+    ctx.fillText(label,0,3);
+    ctx.restore();
+  });
+}
+
+/* geo-tagged utility pins */
+function drawPins(){
+  survey.pins.forEach(p=>{
+    const m=PIN_META[p.type];
+    ctx.save();
+    ctx.strokeStyle=m.color; ctx.fillStyle='rgba(13,21,32,.92)'; ctx.lineWidth=1.8;
+    ctx.shadowColor=m.color; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(p.x,p.y,12,0,7); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.font='12px serif'; ctx.textAlign='center'; ctx.fillText(m.ic, p.x, p.y+4);
+    ctx.font='600 9.5px Space Grotesk'; ctx.fillStyle=m.color;
+    ctx.fillText(m.label+' · '+toUnits(p.x).toFixed(1)+','+toUnits(p.y).toFixed(1)+' '+state.unit, p.x, p.y+25);
+  });
+}
+
+/* ---- overlay pipeline: wrap the Part-1 draw() ---- */
+const _drawBase = draw;
+draw = function(){
+  _drawBase();
+  const plot = getPlotPoly();
+  if(plot){
+    if(plot.virtual){                       // ghost outline for virtual plot
+      ctx.save(); ctx.strokeStyle='rgba(90,162,255,.55)'; ctx.lineWidth=2; ctx.setLineDash([4,5]);
+      ctx.beginPath(); plot.pts.forEach((p,i)=> i?ctx.lineTo(...p):ctx.moveTo(...p)); ctx.closePath(); ctx.stroke(); ctx.restore();
+      ctx.font='600 10.5px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='#5aa2ff';
+      ctx.fillText('VIRTUAL PLOT (from Math Engine)', (plot.pts[0][0]+plot.pts[1][0])/2, plot.pts[0][1]-10);
+    }
+    drawSurveyRoad(plot);
+    drawSurveyContext(plot);
+    drawSetbacks(plot);
+  }
+  drawPins();
+};
+
+/* ============================================================
+   PART 3 · WIRING
+   ============================================================ */
+function updateRuleNote(){
+  const n=$('ruleNote'), m=plotMarlas(), g=plotGaz();
+  const isSBCA = regState.authority==='SBCA';
+  $('cdaPresets').style.display = regState.authority==='CDA' ? 'block':'none';
+  $('cdaBadge').classList.toggle('show', regState.authority==='CDA' && regState.basement);
+  if(regState.authority==='none'){ n.className='rule-note'; n.innerHTML='Select an authority — setback lines will be drawn on the plot automatically based on its size (Marla, or گز for Karachi/SBCA).'; return; }
+  if(!m){ n.className='rule-note'; n.innerHTML='<b>'+regState.authority+'</b> selected — enter plot measurements (Math Engine) or measure a plot on the canvas to evaluate setbacks.'; return; }
+  n.className='rule-note active';
+  const specs=SETBACK_RULES[regState.authority](m, g);
+  const sizeTxt = isSBCA ? g.toFixed(0)+' گز (sq yd)' : m.toFixed(1)+' Marla';
+  if(regState.authority==='CDA'){
+    n.innerHTML='<b>CDA</b> · Plot ≈ '+sizeTxt+' — strict <b>rear ventilation setback</b> enforced (dashed red line on canvas). Standard cuttings below.';
+  } else if(!specs.length){
+    n.innerHTML='<b>'+regState.authority+'</b> · Plot ≈ '+sizeTxt+' — no automatic setback rule matched'+
+      (isSBCA ? ' (≤120 گز compact housing — no mandatory setback).' : ' (rules apply at 3–5 Marla and 10+ Marla).');
+  } else {
+    n.innerHTML='<b>'+regState.authority+'</b> · Plot ≈ '+sizeTxt+' — applied: '+specs.map(s=>'<b>'+s.label.toLowerCase()+'</b>').join(' + ')+'. Dashed lines mark the no-build zone.'+
+      (isSBCA ? '<br><span style="font-size:10.5px;opacity:.8">Indicative slabs — final values SBCA se verify karein.</span>' : '');
+  }
+}
+
+$('authority').addEventListener('change', e=>{ regState.authority=e.target.value; updateRuleNote(); draw(); });
+const swB=$('swBasement');
+function toggleBasement(){ regState.basement=!regState.basement; swB.classList.toggle('on',regState.basement); swB.setAttribute('aria-checked',regState.basement); updateRuleNote(); if(regState.basement&&regState.authority==='CDA') toast('⚠ CDA Compliant Basement Check Required'); }
+swB.addEventListener('click', toggleBasement);
+swB.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleBasement();} });
+
+/* keep rules in sync with area + marla standard changes */
+const _setActiveArea = setActiveArea;
+setActiveArea = function(sqft, src){ _setActiveArea(sqft, src); updateRuleNote(); draw(); };
+$('marlaStd').addEventListener('change', ()=>{ updateRuleNote(); draw(); });
+
+/* --- survey drawer --- */
+$('surveyHead').addEventListener('click', ()=> $('survey').classList.toggle('collapsed'));
+$('svRoad').addEventListener('input', e=>{ survey.roadW=parseFloat(e.target.value)||0; draw(); });
+[['svFront','front'],['svLeft','left'],['svRight','right'],['svRear','rear']].forEach(([id,k])=>
+  $(id).addEventListener('change', e=>{ survey[k]=e.target.value; updateCornerNote(); draw(); }));
+function updateCornerNote(){
+  const n=$('cornerNote'); if(!n) return;
+  const roads=['front','left','right','rear'].filter(k=>survey[k]==='road'||survey[k]==='street').length;
+  if(roads>=2){ n.textContent='📍 Corner Plot detected — '+roads+' taraf road/street. (zyada roshni + zyada shor)'; n.style.color='#f0b444'; }
+  else { n.textContent='Corner plot? Do se zyada taraf road/street chunein.'; n.style.color=''; }
+}
+const SOIL_HINT={sandy:'Sandy: deeper foundation advised.',clay:'Clay: watch for expansion — raft footing common.',rocky:'Rocky: excellent bearing, excavation costly.'};
+$('svSoil').addEventListener('change', e=>{ survey.soil=e.target.value; $('soilHint').textContent=SOIL_HINT[e.target.value]; });
+
+/* --- utility pins (capture phase so armed pins override draw tools) --- */
+document.querySelectorAll('.pin-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    survey.pinMode = survey.pinMode===b.dataset.pin ? null : b.dataset.pin;
+    document.querySelectorAll('.pin-btn').forEach(x=>x.classList.toggle('armed', x.dataset.pin===survey.pinMode));
+    $('fMsg').textContent = survey.pinMode ? 'Pin armed — click on the canvas to place '+PIN_META[survey.pinMode].label+' · Esc to disarm' : 'Pin disarmed';
+  });
+});
+cv.addEventListener('click', e=>{
+  if(!survey.pinMode) return;
+  e.stopImmediatePropagation();                       // don't draw a line under the pin
+  survey.pins.push({type:survey.pinMode, x:state.mouse[0], y:state.mouse[1]});
+  toast(PIN_META[survey.pinMode].ic+' '+PIN_META[survey.pinMode].label+' pinned at '+toUnits(state.mouse[0]).toFixed(1)+', '+toUnits(state.mouse[1]).toFixed(1)+' '+state.unit);
+  draw();
+}, true);
+window.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && survey.pinMode){
+    survey.pinMode=null;
+    document.querySelectorAll('.pin-btn').forEach(x=>x.classList.remove('armed'));
+  }
+});
+
+/* ============================================================
+   PART 4 — GEO-ENERGY & MICROCLIMATE SIMULATOR
+   ------------------------------------------------------------
+   Compass model: the plot's FRONT always faces the bottom of the
+   screen (toward the road). "Plot Facing" rotates the world:
+   bearing → screen angle = (-90 + bearing + ROT[facing]) degrees.
+   ============================================================ */
+const sim = { time:12, season:'summer', facing:'N', sun:false, wind:false, noise:false };
+const SIM_ROT = { N:180, E:90, S:0, W:270 };
+
+function bearingToScreen(b){ return (-90 + b + SIM_ROT[sim.facing]) * Math.PI/180; }
+function bearingVec(b){ const a=bearingToScreen(b); return [Math.cos(a), Math.sin(a)]; }
+function fmtTime(t){ const h=Math.floor(t), m=Math.round((t-h)*60); return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
+
+/* --- solar geometry ---
+   azimuth: 06:00 = East(90°) → 12:00 = South(180°) → 18:00 = West(270°)
+   elevation: sine curve peaking at noon; summer sun is much higher   */
+function sunAzimuth(){ return 90 + 15 * (sim.time - 6); }
+function sunElevation(){
+  const peak = sim.season==='summer' ? 72 : 38;               // degrees
+  return Math.max(2, peak * Math.sin(Math.PI * (sim.time-6) / 12));
+}
+function shadowFactor(){                                       // length ∝ cot(elevation)
+  return Math.min(5, Math.max(0.18, 1 / Math.tan(sunElevation()*Math.PI/180)));
+}
+
+/* ---------- SUN PATH + DYNAMIC SHADOW LAYER ---------- */
+function plotCentroid(pts){
+  return [pts.reduce((s,p)=>s+p[0],0)/pts.length, pts.reduce((s,p)=>s+p[1],0)/pts.length];
+}
+
+function extrudeShadow(pts, vec, alpha){
+  ctx.save();
+  ctx.fillStyle = 'rgba(5,9,16,'+alpha+')';
+  for(let i=0;i<pts.length;i++){
+    const p1=pts[i], p2=pts[(i+1)%pts.length];
+    ctx.beginPath();
+    ctx.moveTo(...p1); ctx.lineTo(...p2);
+    ctx.lineTo(p2[0]+vec[0], p2[1]+vec[1]);
+    ctx.lineTo(p1[0]+vec[0], p1[1]+vec[1]);
+    ctx.closePath(); ctx.fill();
+  }
+  /* cap polygon at the far end */
+  ctx.beginPath();
+  pts.forEach((p,i)=> i?ctx.lineTo(p[0]+vec[0],p[1]+vec[1]):ctx.moveTo(p[0]+vec[0],p[1]+vec[1]));
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/* neighbour building blocks (from Part 3 survey) that also cast shadows */
+function neighbourBlocks(plot){
+  const {edges,front,rear}=plotEdges(plot.pts);
+  const side=edges.filter(e=>e!==front&&e!==rear);
+  if(!side.length) return [];
+  const leftE  = side.reduce((a,b)=> (b.p1[0]+b.p2[0])<(a.p1[0]+a.p2[0])?b:a, side[0]);
+  const rightE = side.reduce((a,b)=> (b.p1[0]+b.p2[0])>(a.p1[0]+a.p2[0])?b:a, side[0]);
+  const [cxr,cyr]=plotCentroid(plot.pts);
+  const out=[];
+  [[leftE,survey.left],[rightE,survey.right],[rear,survey.rear]].forEach(([e,val])=>{
+    if(!e || val==='empty') return;
+    const dx=e.p2[0]-e.p1[0], dy=e.p2[1]-e.p1[1], len=Math.hypot(dx,dy)||1;
+    let nx=-dy/len, ny=dx/len;
+    if((cxr-(e.p1[0]+e.p2[0])/2)*nx + (cyr-(e.p1[1]+e.p2[1])/2)*ny > 0){ nx=-nx; ny=-ny; }
+    const d=26;
+    out.push({ h: val==='2f'?1.35:0.7,
+      pts:[[...e.p1],[...e.p2],[e.p2[0]+nx*d,e.p2[1]+ny*d],[e.p1[0]+nx*d,e.p1[1]+ny*d]] });
+  });
+  return out;
+}
+
+function drawSunPath(plot){
+  const w=cv.clientWidth, h=cv.clientHeight;
+  const [cx,cy] = plot ? plotCentroid(plot.pts) : [w/2, h/2];
+  const R = Math.min(w,h)*0.37;
+  const a1 = bearingToScreen(90);                     // sunrise (East)
+
+  /* shadows first, under the arc */
+  if(plot){
+    const az=sunAzimuth();
+    const sv=bearingVec(az);
+    const len=Math.min(240, 26*shadowFactor()* (plot.ppf/ (pxPerUnit()/(state.unit==='m'?FT_PER_M:1)) || 1) * 1);
+    const shadowVec=[-sv[0]*len, -sv[1]*len];         // shadow falls away from the sun
+    extrudeShadow(plot.pts, shadowVec, 0.16);
+    neighbourBlocks(plot).forEach(b=>{
+      ctx.save(); ctx.fillStyle='rgba(40,52,74,.55)';
+      ctx.beginPath(); b.pts.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p)); ctx.closePath(); ctx.fill(); ctx.restore();
+      extrudeShadow(b.pts, [shadowVec[0]*b.h, shadowVec[1]*b.h], 0.14);
+    });
+  }
+
+  /* solar arc E → S → W with hour ticks */
+  ctx.save();
+  ctx.strokeStyle='rgba(250,204,21,.8)'; ctx.lineWidth=2; ctx.setLineDash([5,7]);
+  ctx.beginPath(); ctx.arc(cx, cy, R, a1, a1+Math.PI, false); ctx.stroke();
+  ctx.setLineDash([]);
+  for(let hh=6; hh<=18; hh+=2){
+    const a=bearingToScreen(90+15*(hh-6));
+    const x1=cx+Math.cos(a)*(R-5), y1=cy+Math.sin(a)*(R-5);
+    const x2=cx+Math.cos(a)*(R+5), y2=cy+Math.sin(a)*(R+5);
+    ctx.strokeStyle='rgba(250,204,21,.5)'; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  }
+  /* E / W markers */
+  [['E',90],['S',180],['W',270]].forEach(([t,b])=>{
+    const a=bearingToScreen(b);
+    ctx.font='700 11px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='rgba(250,204,21,.75)';
+    ctx.fillText(t, cx+Math.cos(a)*(R+20), cy+Math.sin(a)*(R+20)+4);
+  });
+
+  /* the sun itself */
+  const sa=bearingToScreen(sunAzimuth());
+  const sx=cx+Math.cos(sa)*R, sy=cy+Math.sin(sa)*R;
+  ctx.shadowColor='#facc15'; ctx.shadowBlur=18;
+  ctx.fillStyle='#facc15';
+  ctx.beginPath(); ctx.arc(sx,sy,9,0,7); ctx.fill();
+  ctx.shadowBlur=0;
+  for(let i=0;i<8;i++){
+    const ra=i*Math.PI/4;
+    ctx.strokeStyle='#facc15'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(sx+12*Math.cos(ra),sy+12*Math.sin(ra)); ctx.lineTo(sx+17*Math.cos(ra),sy+17*Math.sin(ra)); ctx.stroke();
+  }
+  ctx.font='600 10.5px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='#facc15';
+  ctx.fillText(fmtTime(sim.time)+' · '+Math.round(sunElevation())+'° alt', sx, sy+31);
+  ctx.restore();
+}
+
+/* ---------- WIND PATTERNS (animated particle arrows) ---------- */
+let windP=[], rafId=null, lastTs=0;
+function windFlowVec(){
+  /* summer: FROM South-West → flows toward NE (bearing 45)
+     winter: FROM East/North-East → flows toward WSW (bearing ~247) */
+  return sim.season==='summer' ? bearingVec(45) : bearingVec(247.5);
+}
+function seedWind(){
+  windP=[];
+  for(let i=0;i<28;i++) windP.push({
+    x:Math.random()*cv.clientWidth, y:Math.random()*cv.clientHeight,
+    s:30+Math.random()*40, o:0.3+Math.random()*0.55, c:i%3
+  });
+}
+function stepWind(dt){
+  const [fx,fy]=windFlowVec(), w=cv.clientWidth, h=cv.clientHeight, m=40;
+  windP.forEach(p=>{
+    p.x+=fx*p.s*dt; p.y+=fy*p.s*dt;
+    if(p.x<-m)p.x=w+m; if(p.x>w+m)p.x=-m;
+    if(p.y<-m)p.y=h+m; if(p.y>h+m)p.y=-m;
+  });
+}
+function drawWind(){
+  const [fx,fy]=windFlowVec();
+  const cols = sim.season==='summer' ? ['#38bdf8','#0ea5e9','#1b2536'] : ['#bae6fd','#93c5fd','#64748b'];
+  windP.forEach(p=>{
+    const L=17, hx=p.x+fx*L, hy=p.y+fy*L;
+    ctx.save(); ctx.globalAlpha=p.o;
+    ctx.strokeStyle=cols[p.c]; ctx.fillStyle=cols[p.c]; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(hx,hy); ctx.stroke();
+    const a=Math.atan2(fy,fx);
+    ctx.beginPath();
+    ctx.moveTo(hx,hy);
+    ctx.lineTo(hx-7*Math.cos(a-.42), hy-7*Math.sin(a-.42));
+    ctx.lineTo(hx-7*Math.cos(a+.42), hy-7*Math.sin(a+.42));
+    ctx.fill(); ctx.restore();
+  });
+  ctx.font='600 11px Space Grotesk'; ctx.textAlign='left';
+  ctx.fillStyle = sim.season==='summer' ? '#38bdf8' : '#93c5fd';
+  ctx.fillText(sim.season==='summer' ? '🌬 SUMMER BREEZE · SW → NE' : '🌬 WINTER WIND · E/NE → WSW', 14, cv.clientHeight-14);
+}
+function tick(ts){
+  const dt=Math.min(0.05, (ts-lastTs)/1000 || 0.016); lastTs=ts;
+  stepWind(dt); draw();
+  rafId = sim.wind ? requestAnimationFrame(tick) : null;
+}
+function ensureLoop(){
+  if(sim.wind && !rafId){ lastTs=performance.now(); rafId=requestAnimationFrame(tick); }
+}
+
+/* ---------- NOISE MAPPING (dB gradient overlay) ---------- */
+function drawNoise(plot){
+  const {front}=plotEdges(plot.pts);
+  const [cxr,cyr]=plotCentroid(plot.pts);
+  const mx=(front.p1[0]+front.p2[0])/2, my=(front.p1[1]+front.p2[1])/2;
+  const dx=front.p2[0]-front.p1[0], dy=front.p2[1]-front.p1[1], len=Math.hypot(dx,dy)||1;
+  let nx=-dy/len, ny=dx/len;
+  if((cxr-mx)*nx+(cyr-my)*ny>0){nx=-nx;ny=-ny;}                 // outward
+
+  /* HIGH-dB zone: red/orange radial from the road, scaled by road width */
+  if(survey.roadW>0){
+    const inten=Math.min(1, survey.roadW/60);
+    const R=Math.max(130, survey.roadW*plot.ppf*2.4);
+    const gx=mx+nx*20, gy=my+ny*20;
+    const g=ctx.createRadialGradient(gx,gy,10,gx,gy,R);
+    g.addColorStop(0,'rgba(248,113,113,'+(0.42*inten+0.12)+')');
+    g.addColorStop(0.45,'rgba(251,146,60,'+(0.22*inten+0.06)+')');
+    g.addColorStop(1,'rgba(251,146,60,0)');
+    ctx.fillStyle=g; ctx.fillRect(gx-R,gy-R,R*2,R*2);
+    ctx.font='700 10.5px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='#fca5a5';
+    ctx.fillText('HIGH ~'+Math.round(55+25*inten)+' dB', gx, gy-6);
+  }
+  /* two-floor neighbours reflect a little noise */
+  neighbourBlocks(plot).filter(b=>b.h>1).forEach(b=>{
+    const bx=b.pts.reduce((s,p)=>s+p[0],0)/4, by=b.pts.reduce((s,p)=>s+p[1],0)/4;
+    const g=ctx.createRadialGradient(bx,by,4,bx,by,90);
+    g.addColorStop(0,'rgba(251,146,60,.14)'); g.addColorStop(1,'rgba(251,146,60,0)');
+    ctx.fillStyle=g; ctx.fillRect(bx-90,by-90,180,180);
+  });
+  /* QUIET zone: green radial in the plot's heart */
+  const qR=Math.min(cv.clientWidth,cv.clientHeight)*0.22;
+  const q=ctx.createRadialGradient(cxr,cyr,6,cxr,cyr,qR);
+  q.addColorStop(0,'rgba(74,222,128,.20)'); q.addColorStop(1,'rgba(74,222,128,0)');
+  ctx.fillStyle=q; ctx.fillRect(cxr-qR,cyr-qR,qR*2,qR*2);
+  ctx.font='700 10.5px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='#4ade80';
+  ctx.fillText('QUIET ~40 dB · پرسکون', cxr, cyr+4);
+}
+
+/* ---------- mini compass (top-right) ---------- */
+function drawSimCompass(){
+  const x=cv.clientWidth-52, y=52, r=30;
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(13,21,32,.9)'; ctx.strokeStyle='#24344c'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(0,0,r,0,7); ctx.fill(); ctx.stroke();
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([t,b])=>{
+    const a=bearingToScreen(b);
+    ctx.font='700 10px Space Grotesk'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle = t==='N' ? '#f0b444' : '#8fa3bd';
+    ctx.fillText(t, Math.cos(a)*(r-9), Math.sin(a)*(r-9));
+  });
+  const na=bearingToScreen(0);
+  ctx.strokeStyle='#f0b444'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(na)*(r-16),Math.sin(na)*(r-16)); ctx.stroke();
+  ctx.restore(); ctx.textBaseline='alphabetic';
+  ctx.font='600 9.5px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle='#8fa3bd';
+  ctx.fillText('Facing '+sim.facing, x, y+r+13);
+}
+
+/* ---------- overlay pipeline (wraps the Part-3 draw) ---------- */
+const _drawP3 = draw;
+draw = function(){
+  _drawP3();
+  const plot=getPlotPoly();
+  if(sim.noise && plot) drawNoise(plot);
+  if(sim.sun) drawSunPath(plot);
+  if(sim.wind) drawWind();
+  if(sim.sun||sim.wind||sim.noise) drawSimCompass();
+};
+
+/* ============================================================
+   PART 4 · §3 — PASSIVE DESIGN RECOMMENDATION ENGINE
+   ============================================================ */
+const FACING_TIPS = {
+  W:'Your plot faces <b>West</b>. The afternoon sun will cause high heat gain — consider a secondary skin/façade or minimal window openings on the western wall.',
+  E:'Your plot faces <b>East</b> — pleasant morning sun. Put bedrooms &amp; breakfast spaces toward the front, and shade east glass after 10 am.',
+  S:'Your plot faces <b>South</b> — excellent winter solar gain. Use deep verandas / چھجے to cut the high summer sun.',
+  N:'Your plot faces <b>North</b> — soft, glare-free daylight. Larger front windows are safe; keep some south exposure for winter warmth.'
+};
+function renderRecs(){
+  const tips=[FACING_TIPS[sim.facing]];
+  tips.push(sim.season==='summer'
+    ? 'Summer breeze flows from the <b>South-West</b> — place main openings &amp; courtyard on the SW side for cross-ventilation.'
+    : 'Cold winter winds arrive from the <b>East / North-East</b> — buffer that side with stores, stairs or dense planting.');
+  if(survey.roadW>=40)
+    tips.push('Wide <b>'+survey.roadW+' ft road</b> = high traffic noise — boundary wall + tree line; keep bedrooms to the rear.');
+  if(sim.sun)
+    tips.push('At <b>'+fmtTime(sim.time)+'</b> shadows are ~<b>'+shadowFactor().toFixed(1)+'×</b> building height ('+sim.season+' sun, '+Math.round(sunElevation())+'° altitude).');
+  $('recBox').innerHTML='<h4>Passive Design Tips</h4>'+tips.map(t=>'<div class="tip">'+t+'</div>').join('');
+}
+
+/* ---------- wiring ---------- */
+$('simHead').addEventListener('click', ()=> $('simPanel').classList.toggle('collapsed'));
+$('simTime').addEventListener('input', e=>{
+  sim.time=parseFloat(e.target.value);
+  $('simTimeLab').textContent=fmtTime(sim.time);
+  renderRecs(); if(!sim.wind) draw();
+});
+seg('simSeason', v=>{ sim.season=v; renderRecs(); if(!sim.wind) draw(); });
+seg('simFacing', v=>{ sim.facing=v; renderRecs(); if(!sim.wind) draw(); });
+$('ovSun').addEventListener('change', e=>{ sim.sun=e.target.checked; renderRecs(); draw(); });
+$('ovWind').addEventListener('change', e=>{ sim.wind=e.target.checked; if(sim.wind){seedWind();ensureLoop();} else draw(); });
+$('ovNoise').addEventListener('change', e=>{ sim.noise=e.target.checked; draw(); });
+$('svRoad').addEventListener('input', renderRecs);
+window.addEventListener('resize', seedWind);
+
+/* ============================================================
+   FEATURE 2 — 3D VIEW  (Three.js)
+   ------------------------------------------------------------
+   2D canvas ki walls, plot boundary, aur pins ko 3D mein uthata hai.
+   - Har wall (Part 1 line) → 10 ft oonchi deewar
+   - Plot polygon / virtual plot → farsh (floor slab)
+   - Part 4 ka sooraj → asli directional light + saaya
+   Orbit (rotate/zoom) default; "Walk" mode se andar ghoomna.
+   ============================================================ */
+const V3D = {
+  on:false, mode:'orbit', useSun:true, roof:false,
+  scene:null, camera:null, renderer:null, raf:null,
+  yaw:0.6, pitch:0.5, radius:0, target:null,
+  walk:{x:0,z:0,ang:0,keys:{}}, dragging:false, lastX:0, lastY:0,
+  sunLight:null, hemi:null, group:null, ppf:1
+};
+const WALL_H_FT = 10;      // matches BOM standard height
+
+function three(){ return window.THREE; }
+
+/* ---- convert a 2D pixel point to 3D world (feet), centered ---- */
+function to3D(px, py, ppf, cx, cy){
+  return [ (px-cx)/ppf, (py-cy)/ppf ];   // returns [worldX, worldZ] in feet
+}
+
+function buildScene(){
+  const T = three(); if(!T) return false;
+  const host = $('view3d');
+  const w = host.clientWidth, h = host.clientHeight;
+
+  /* renderer */
+  if(!V3D.renderer){
+    V3D.renderer = new T.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+    V3D.renderer.shadowMap.enabled = true;
+    V3D.renderer.shadowMap.type = T.PCFSoftShadowMap;
+    host.appendChild(V3D.renderer.domElement);
+    attachControls(V3D.renderer.domElement);
+  }
+  V3D.renderer.setSize(w, h);
+  V3D.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+  /* scene + fog */
+  const scene = new T.Scene();
+  scene.background = new T.Color('#0a0f18');
+  scene.fog = new T.Fog('#0a0f18', 120, 520);
+  V3D.scene = scene;
+
+  /* camera */
+  V3D.camera = new T.PerspectiveCamera(55, w/h, 0.5, 4000);
+
+  /* lights */
+  V3D.hemi = new T.HemisphereLight('#bcd3ff', '#20304a', 0.75);
+  scene.add(V3D.hemi);
+  const amb = new T.AmbientLight('#ffffff', 0.18); scene.add(amb);
+  V3D.sunLight = new T.DirectionalLight('#fff4d6', 1.15);
+  V3D.sunLight.castShadow = true;
+  V3D.sunLight.shadow.mapSize.set(2048,2048);
+  const sc = V3D.sunLight.shadow.camera;
+  sc.near=1; sc.far=1200; sc.left=-300; sc.right=300; sc.top=300; sc.bottom=-300;
+  scene.add(V3D.sunLight);
+  scene.add(V3D.sunLight.target);
+
+  /* build the model group */
+  V3D.group = new T.Group();
+  scene.add(V3D.group);
+  /* Feature 3: a 3D model was queued before the engine loaded */
+  if(IMPORT._pending){ const p=IMPORT._pending; IMPORT._pending=null; import3D(p.kind, p.data); }
+  populateModel();
+  applySun();
+  frameCamera();
+  return true;
+}
+
+/* ---- create walls / floor / pins from current 2D state ---- */
+function populateModel(){
+  const T = three();
+  const g = V3D.group;
+  while(g.children.length) g.remove(g.children[0]);
+
+  const plot = getPlotPoly();
+  const ppf = plot ? plot.ppf : (pxPerUnit()/(state.unit==='m'?FT_PER_M:1));
+  V3D.ppf = ppf;
+  /* centre the model on the plot (or canvas centre) */
+  let cx = cv.clientWidth/2, cy = cv.clientHeight/2;
+  if(plot){ const c=plotCentroid(plot.pts); cx=c[0]; cy=c[1]; }
+  V3D._cx=cx; V3D._cy=cy;
+
+  /* ground plane */
+  const ground = new T.Mesh(
+    new T.PlaneGeometry(2000,2000),
+    new T.MeshStandardMaterial({color:'#141d2b', roughness:1})
+  );
+  ground.rotation.x = -Math.PI/2; ground.position.y = -0.1;
+  ground.receiveShadow = true; g.add(ground);
+
+  /* grid helper */
+  const grid = new T.GridHelper(600, 60, 0x24344c, 0x18243a);
+  grid.position.y = 0; g.add(grid);
+
+  /* plot floor slab */
+  if(plot){
+    const shape = new T.Shape();
+    plot.pts.forEach((p,i)=>{ const [x,z]=to3D(p[0],p[1],ppf,cx,cy); i?shape.lineTo(x,z):shape.moveTo(x,z); });
+    const geo = new T.ExtrudeGeometry(shape, {depth:0.6, bevelEnabled:false});
+    geo.rotateX(Math.PI/2);
+    const floor = new T.Mesh(geo, new T.MeshStandardMaterial({color:'#2a3346', roughness:.9}));
+    floor.receiveShadow = true; floor.position.y=0; g.add(floor);
+    /* plot boundary outline */
+    const pts3 = plot.pts.map(p=>{ const [x,z]=to3D(p[0],p[1],ppf,cx,cy); return new T.Vector3(x,0.7,z); });
+    pts3.push(pts3[0].clone());
+    const line = new T.Line(new T.BufferGeometry().setFromPoints(pts3),
+      new T.LineBasicMaterial({color:0x5aa2ff}));
+    g.add(line);
+  }
+
+  /* WALLS from drawn lines */
+  const wallMat = new T.MeshStandardMaterial({color:'#c9d3e2', roughness:.85});
+  state.lines.forEach(l=>{
+    const [x1,z1]=to3D(l.a[0],l.a[1],ppf,cx,cy);
+    const [x2,z2]=to3D(l.b[0],l.b[1],ppf,cx,cy);
+    const len = Math.hypot(x2-x1, z2-z1);
+    if(len<0.3) return;
+    const wall = new T.Mesh(new T.BoxGeometry(len, WALL_H_FT, 0.75), wallMat);
+    wall.position.set((x1+x2)/2, WALL_H_FT/2, (z1+z2)/2);
+    wall.rotation.y = -Math.atan2(z2-z1, x2-x1);
+    wall.castShadow = true; wall.receiveShadow = true;
+    g.add(wall);
+  });
+
+  /* neighbour blocks (from survey) as grey masses */
+  if(plot){
+    neighbourBlocks(plot).forEach(b=>{
+      const cxb=b.pts.reduce((s,p)=>s+p[0],0)/4, cyb=b.pts.reduce((s,p)=>s+p[1],0)/4;
+      const [bx,bz]=to3D(cxb,cyb,ppf,cx,cy);
+      const wd=Math.hypot(...to3D(b.pts[1][0],b.pts[1][1],ppf,cx,cy).map((v,i)=>v-to3D(b.pts[0][0],b.pts[0][1],ppf,cx,cy)[i]));
+      const bh = b.h*WALL_H_FT;
+      const nb = new T.Mesh(new T.BoxGeometry(Math.max(6,wd),bh,10),
+        new T.MeshStandardMaterial({color:'#3a4a63', roughness:1, transparent:true, opacity:.85}));
+      nb.position.set(bx, bh/2, bz);
+      nb.castShadow=true; nb.receiveShadow=true; g.add(nb);
+    });
+  }
+
+  /* utility pins as coloured posts */
+  survey.pins.forEach(p=>{
+    const [x,z]=to3D(p.x,p.y,ppf,cx,cy);
+    const col = {water:0x38bdf8,gas:0xfb923c,electric:0xfacc15}[p.type]||0x5aa2ff;
+    const post = new T.Mesh(new T.CylinderGeometry(0.4,0.4,6,10),
+      new T.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:.35}));
+    post.position.set(x,3,z); post.castShadow=true; g.add(post);
+    const ball = new T.Mesh(new T.SphereGeometry(1.1,14,14),
+      new T.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:.5}));
+    ball.position.set(x,6.6,z); g.add(ball);
+  });
+
+  /* optional roof over the wall footprint */
+  if(V3D.roof && plot){    const shape = new T.Shape();
+    plot.pts.forEach((p,i)=>{ const [x,z]=to3D(p[0],p[1],ppf,cx,cy); i?shape.lineTo(x,z):shape.moveTo(x,z); });
+    const geo = new T.ExtrudeGeometry(shape, {depth:0.8, bevelEnabled:false});
+    geo.rotateX(Math.PI/2);
+    const roof = new T.Mesh(geo, new T.MeshStandardMaterial({color:'#8a5a3c', roughness:.9, transparent:true, opacity:.9}));
+    roof.position.y = WALL_H_FT+0.4; roof.castShadow=true; g.add(roof);
+  }
+
+  /* Feature 3: imported OBJ/STL model, auto-scaled onto the plot */
+  if(IMPORT.model3D){
+    const T=three();
+    const mesh=new T.Mesh(IMPORT.model3D.geo,
+      new T.MeshStandardMaterial({color:'#9db4d4', roughness:.7, metalness:.05, flatShading:true}));
+    IMPORT.model3D.geo.computeBoundingBox();
+    const bb=IMPORT.model3D.geo.boundingBox, size=new T.Vector3(); bb.getSize(size);
+    const maxDim=Math.max(size.x,size.y,size.z)||1;
+    const targetFt=Math.min(cv.clientWidth,cv.clientHeight)/V3D.ppf*0.4;
+    const s=targetFt/maxDim; mesh.scale.setScalar(s);
+    const ctr=new T.Vector3(); bb.getCenter(ctr);
+    mesh.position.set(-ctr.x*s, -bb.min.y*s, -ctr.z*s);
+    mesh.castShadow=true; mesh.receiveShadow=true;
+    g.add(mesh);
+  }
+}
+
+/* ---- sun: reuse Part 4 azimuth + elevation ---- */
+function applySun(){
+  const T = three(); if(!V3D.sunLight) return;
+  if(V3D.useSun){
+    const azDeg = sunAzimuth();                 // Part 4
+    const elDeg = sunElevation();
+    const az = (azDeg - 90 + SIM_ROT[sim.facing]) * Math.PI/180; // align to plot facing
+    const el = elDeg * Math.PI/180;
+    const R = 260;
+    V3D.sunLight.position.set(
+      Math.cos(az)*Math.cos(el)*R,
+      Math.sin(el)*R + 20,
+      Math.sin(az)*Math.cos(el)*R
+    );
+    V3D.sunLight.intensity = sim.season==='summer' ? 1.25 : 0.95;
+    const warm = elDeg < 15 ? '#ffb066' : '#fff4d6';
+    V3D.sunLight.color.set(warm);
+    V3D.hemi.intensity = 0.4 + 0.5*Math.sin(el);
+  } else {
+    V3D.sunLight.position.set(120,240,90);
+    V3D.sunLight.intensity = 1.1;
+    V3D.sunLight.color.set('#ffffff');
+    V3D.hemi.intensity = 0.75;
+  }
+  V3D.sunLight.target.position.set(0,0,0);
+}
+
+/* ---- camera framing ---- */
+function frameCamera(){
+  const T = three();
+  let span = 80;
+  const plot = getPlotPoly();
+  if(plot){
+    const xs=plot.pts.map(p=>p[0]), ys=plot.pts.map(p=>p[1]);
+    span = Math.max((Math.max(...xs)-Math.min(...xs)), (Math.max(...ys)-Math.min(...ys)))/V3D.ppf;
+  }
+  V3D.radius = Math.max(60, span*1.9);
+  V3D.target = new T.Vector3(0, WALL_H_FT*0.4, 0);
+  updateOrbitCamera();
+}
+function updateOrbitCamera(){
+  const T=three();
+  const r=V3D.radius, y=V3D.pitch;
+  V3D.camera.position.set(
+    V3D.target.x + r*Math.cos(V3D.yaw)*Math.cos(y),
+    V3D.target.y + r*Math.sin(y),
+    V3D.target.z + r*Math.sin(V3D.yaw)*Math.cos(y)
+  );
+  V3D.camera.lookAt(V3D.target);
+}
+
+/* ---- controls: orbit drag/zoom + walk WASD ---- */
+function attachControls(dom){
+  dom.addEventListener('mousedown', e=>{ V3D.dragging=true; V3D.lastX=e.clientX; V3D.lastY=e.clientY; });
+  window.addEventListener('mouseup', ()=> V3D.dragging=false);
+  window.addEventListener('mousemove', e=>{
+    if(!V3D.dragging || !V3D.on) return;
+    const dx=e.clientX-V3D.lastX, dy=e.clientY-V3D.lastY;
+    V3D.lastX=e.clientX; V3D.lastY=e.clientY;
+    if(V3D.mode==='orbit'){
+      V3D.yaw   += dx*0.008;
+      V3D.pitch = Math.max(0.08, Math.min(1.45, V3D.pitch - dy*0.008));
+      updateOrbitCamera();
+    } else {
+      V3D.walk.ang -= dx*0.005;
+      V3D.walk.pitch = Math.max(-0.6,Math.min(0.6,(V3D.walk.pitch||0) - dy*0.004));
+    }
+  });
+  dom.addEventListener('wheel', e=>{
+    if(!V3D.on || V3D.mode!=='orbit') return;
+    e.preventDefault();
+    V3D.radius = Math.max(12, Math.min(1400, V3D.radius * (1 + Math.sign(e.deltaY)*0.1)));
+    updateOrbitCamera();
+  }, {passive:false});
+  window.addEventListener('keydown', e=>{ if(V3D.on&&V3D.mode==='walk') V3D.walk.keys[e.key.toLowerCase()]=true; });
+  window.addEventListener('keyup',   e=>{ if(V3D.on) V3D.walk.keys[e.key.toLowerCase()]=false; });
+}
+
+function stepWalk(){
+  const T=three(), wk=V3D.walk, k=wk.keys, sp=0.9;
+  let fx=Math.cos(wk.ang), fz=Math.sin(wk.ang);
+  if(k['w']){ wk.x+=fx*sp; wk.z+=fz*sp; }
+  if(k['s']){ wk.x-=fx*sp; wk.z-=fz*sp; }
+  if(k['a']){ wk.x+=fz*sp; wk.z-=fx*sp; }
+  if(k['d']){ wk.x-=fz*sp; wk.z+=fx*sp; }
+  V3D.camera.position.set(wk.x, 5.5, wk.z);
+  const p=wk.pitch||0;
+  V3D.camera.lookAt(wk.x+Math.cos(wk.ang), 5.5+Math.sin(p), wk.z+Math.sin(wk.ang));
+}
+
+/* ---- render loop ---- */
+function renderLoop(){
+  if(!V3D.on){ V3D.raf=null; return; }
+  if(V3D.mode==='walk') stepWalk();
+  V3D.renderer.render(V3D.scene, V3D.camera);
+  V3D.raf = requestAnimationFrame(renderLoop);
+}
+
+/* ---- open / close ---- */
+function open3D(){
+  if(!three()){
+    /* ES module may still be loading — wait for the ready event once */
+    if(!window._threeWaited){
+      window._threeWaited = true;
+      toast('🧊 3D engine load ho raha hai...');
+      window.addEventListener('three-ready', ()=>{ if($('view3d').classList.contains('open')) { const e=$('v3dErr'); if(e)e.remove(); open3D(); } }, {once:true});
+    }
+    $('view3d').classList.add('open');
+    if(!$('v3dErr')) $('view3d').insertAdjacentHTML('beforeend',
+      '<div id="v3dErr" style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#8fa3bd;padding:30px">'+
+      '<div><div style="font-size:40px">🧊</div><br>3D engine load ho raha hai...<br>'+
+      '<span style="font-size:11px">Pehli dafa internet zaroori hai. Agar na khule to page refresh karein.</span><br>'+
+      '<button class="v3d-btn" onclick="close3D()" style="margin-top:14px">✕ Wapas 2D</button></div></div>');
+    return;
+  }
+  const err=$('v3dErr'); if(err) err.remove();
+  $('view3d').classList.add('open');
+  V3D.on = true;
+  buildScene();
+  if(!V3D.raf) renderLoop();
+  $('btn3D').classList.add('on');
+  toast('🧊 3D View — drag to rotate, scroll to zoom');
+}
+function close3D(){
+  V3D.on=false; $('view3d').classList.remove('open'); $('btn3D').classList.remove('on');
+}
+$('btn3D').addEventListener('click', ()=> V3D.on ? close3D() : open3D());
+$('v3dClose').addEventListener('click', close3D);
+$('v3dOrbit').addEventListener('click', ()=>{ V3D.mode='orbit'; setMode(); frameCamera(); });
+$('v3dWalk').addEventListener('click', ()=>{
+  V3D.mode='walk'; setMode();
+  V3D.walk.x=0; V3D.walk.z=-V3D.radius*0.3; V3D.walk.ang=Math.PI/2; V3D.walk.pitch=0;
+});
+function setMode(){
+  $('v3dOrbit').classList.toggle('on', V3D.mode==='orbit');
+  $('v3dWalk').classList.toggle('on', V3D.mode==='walk');
+  $('v3dHint').textContent = V3D.mode==='walk'
+    ? 'Walk: W/A/S/D to move · drag mouse to look around · Orbit button to go back'
+    : 'Mouse drag = rotate · Scroll = zoom · Walk button to step inside';
+}
+$('v3dSun').addEventListener('click', ()=>{ V3D.useSun=!V3D.useSun; $('v3dSun').classList.toggle('on',V3D.useSun); applySun(); });
+$('v3dRoof').addEventListener('click', ()=>{ V3D.roof=!V3D.roof; $('v3dRoof').classList.toggle('on',V3D.roof); populateModel(); applySun(); });
+$('v3dPng').addEventListener('click', ()=>{
+  V3D.renderer.render(V3D.scene, V3D.camera);
+  const url = V3D.renderer.domElement.toDataURL('image/png');
+  /* stamp branding via a 2D canvas */
+  const img = new Image();
+  img.onload = ()=>{
+    const oc=document.createElement('canvas'); oc.width=img.width; oc.height=img.height;
+    const octx=oc.getContext('2d'); octx.drawImage(img,0,0);
+    stampBranding(octx, oc.width, oc.height);
+    const a=document.createElement('a'); a.download='plot-planner-3d.png'; a.href=oc.toDataURL('image/png'); a.click();
+    toast('🖼 3D snapshot saved · Rizwan\'s AI Agency');
+  };
+  img.src=url;
+});
+$('v3dSun').classList.add('on');
+
+/* keep 3D in sync when the simulator sun changes while 3D is open */
+['simTime','ovSun'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input', ()=>{ if(V3D.on&&V3D.useSun) applySun(); }); });
+
+/* resize 3D with window */
+window.addEventListener('resize', ()=>{
+  if(V3D.on && V3D.renderer){
+    const host=$('view3d'); const w=host.clientWidth,h=host.clientHeight;
+    V3D.renderer.setSize(w,h); V3D.camera.aspect=w/h; V3D.camera.updateProjectionMatrix();
+  }
+});
+
+/* ============================================================
+   FEATURE 3 — DESIGN FILE UPLOAD / IMPORT
+   ------------------------------------------------------------
+   Ek hi button jo file ki qism khud pehchanta hai:
+     .json  → poora project wapas load (Part 5 export)
+     .png/.jpg → tracing image (canvas ke peeche, uspar trace karein)
+     .svg   → vector lines → walls
+     .dxf   → AutoCAD open format → walls
+     .obj/.stl → 3D model (3D view mein dikhega)
+   Sab kuch browser ke andar — koi file server par nahi jaati.
+   ============================================================ */
+const IMPORT = {
+  MAX_MB: 25,                                  // size limit (performance)
+  trace: null                                  // {img, x, y, scale, opacity, locked}
+};
+
+function impBadge(txt, ok){
+  const b=$('impBadge'); b.textContent=(ok?'✓ ':'⚠ ')+txt;
+  b.style.borderColor = ok?'var(--green)':'#f87171';
+  b.style.color = ok?'var(--green)':'#fca5a5';
+  b.classList.add('show'); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove('show'), 4000);
+}
+
+/* main entry: validate then route by extension */
+function handleFile(file){
+  if(!file) return;
+  /* security: size guard */
+  if(file.size > IMPORT.MAX_MB*1024*1024){
+    impBadge('File bohot bari (max '+IMPORT.MAX_MB+' MB)', false); return;
+  }
+  const name = file.name.toLowerCase();
+  const ext = name.slice(name.lastIndexOf('.')+1);
+  /* security: only known-safe extensions (no exe/script) */
+  const allowed = ['json','png','jpg','jpeg','svg','dxf','obj','stl'];
+  if(!allowed.includes(ext)){
+    impBadge('Yeh format support nahi ('+ext+')', false); return;
+  }
+  if(ext==='json')                     readAsText(file, importJSON);
+  else if(['png','jpg','jpeg'].includes(ext)) readAsDataURL(file, importImage);
+  else if(ext==='svg')                 readAsText(file, importSVG);
+  else if(ext==='dxf')                 readAsText(file, importDXF);
+  else if(ext==='obj')                 readAsText(file, t=>import3D('obj',t));
+  else if(ext==='stl')                 readAsArrayBuffer(file, b=>import3D('stl',b));
+}
+function readAsText(f,cb){ const r=new FileReader(); r.onload=()=>cb(r.result); r.onerror=()=>impBadge('File parh nahi saka',false); r.readAsText(f); }
+function readAsDataURL(f,cb){ const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsDataURL(f); }
+function readAsArrayBuffer(f,cb){ const r=new FileReader(); r.onload=()=>cb(r.result); r.readAsArrayBuffer(f); }
+
+/* ---------- (A) JSON project re-import ---------- */
+function importJSON(text){
+  let d; try{ d=JSON.parse(text); }catch(e){ impBadge('JSON kharab hai',false); return; }
+  if(!d.meta || !d.part1_canvas){ impBadge('Yeh Plot Planner project nahi lagta',false); return; }
+  try{
+    /* canvas lines + polygons + pins */
+    state.lines = (d.part1_canvas.lines||[]).map(l=>({a:l.a, b:l.b}));
+    state.polys = (d.part1_canvas.polygons||[]).map(p=>({pts:p.points, area:p.areaPx}));
+    survey.pins = d.part1_canvas.utilityPins||[];
+    /* math engine sides */
+    const s=d.part2_area?.sides||{};
+    ['A','B','C','D'].forEach(k=>{ if(s[k]!=null) $('e'+k).value=s[k]; });
+    if(s.diagonal!=null) $('eE').value=s.diagonal;
+    if(d.part2_area?.marlaStandard) $('marlaStd').value=d.part2_area.marlaStandard;
+    /* regulatory + survey */
+    if(d.part3_regulatory){
+      if(d.part3_regulatory.authority){ $('authority').value=d.part3_regulatory.authority; regState.authority=d.part3_regulatory.authority; }
+      const sv=d.part3_regulatory.survey||{};
+      if(sv.roadWidthFt!=null){ survey.roadW=sv.roadWidthFt; $('svRoad').value=sv.roadWidthFt; }
+      if(sv.adjacent){ survey.front=sv.adjacent.front||survey.front; survey.left=sv.adjacent.left; survey.right=sv.adjacent.right; survey.rear=sv.adjacent.rear;
+        if($('svFront'))$('svFront').value=survey.front; $('svLeft').value=survey.left; $('svRight').value=survey.right; $('svRear').value=survey.rear; }
+      if(sv.soil){ survey.soil=sv.soil; $('svSoil').value=sv.soil; }
+    }
+    /* simulation */
+    if(d.part4_simulation){
+      if(d.part4_simulation.facing){ sim.facing=d.part4_simulation.facing;
+        document.querySelectorAll('#simFacing button').forEach(b=>b.classList.toggle('on',b.dataset.v===sim.facing)); }
+      if(d.part4_simulation.season){ sim.season=d.part4_simulation.season;
+        document.querySelectorAll('#simSeason button').forEach(b=>b.classList.toggle('on',b.dataset.v===sim.season)); }
+    }
+    /* cost rates */
+    const r=d.part5_costSheet?.rates||{};
+    if(r.brick!=null)$('rBrick').value=r.brick; if(r.cementBag!=null)$('rCement').value=r.cementBag;
+    if(r.sandCft!=null)$('rSand').value=r.sandCft; if(r.tileSqft!=null)$('rTile').value=r.tileSqft;
+    /* collaboration */
+    if(d.collaboration?.comments){ collab.comments=d.collaboration.comments; collab.approvals=d.collaboration.approvals||{}; renderComments(); }
+    /* recompute everything */
+    runEngine(); updateRuleNote(); renderRecs(); syncStats(); draw();
+    impBadge('Project loaded ✓ ('+(d.meta.exported?.slice(0,10)||'')+')', true);
+    toast('📂 Project restored — sab parts wapas load ho gaye');
+  }catch(e){ impBadge('Load mein masla: '+e.message, false); }
+}
+
+/* ---------- (B) Image as tracing layer ---------- */
+function importImage(dataURL){
+  const img=new Image();
+  img.onload=()=>{
+    /* fit within canvas, centred */
+    const cw=cv.clientWidth, ch=cv.clientHeight;
+    const fit=Math.min(cw*0.8/img.width, ch*0.8/img.height, 1);
+    IMPORT.trace={ img, w:img.width*fit, h:img.height*fit,
+      x:(cw-img.width*fit)/2, y:(ch-img.height*fit)/2,
+      baseW:img.width*fit, baseH:img.height*fit, opacity:0.55, scale:1, locked:false };
+    $('traceCtrl').classList.add('show');
+    $('traceOp').value=55; $('traceScale').value=100; $('traceLock').checked=false;
+    draw();
+    impBadge('Tracing image loaded — ab uspar Draw Line se trace karein', true);
+  };
+  img.onerror=()=>impBadge('Tasveer kharab hai',false);
+  img.src=dataURL;
+}
+
+/* draw the tracing image UNDER everything — hook into draw() */
+function drawTraceLayer(){
+  const t=IMPORT.trace; if(!t) return;
+  ctx.save();
+  ctx.globalAlpha=t.opacity;
+  ctx.drawImage(t.img, t.x, t.y, t.baseW*t.scale, t.baseH*t.scale);
+  ctx.restore();
+  if(!t.locked){
+    ctx.save();
+    ctx.strokeStyle='rgba(90,162,255,.5)'; ctx.setLineDash([6,5]); ctx.lineWidth=1;
+    ctx.strokeRect(t.x, t.y, t.baseW*t.scale, t.baseH*t.scale);
+    ctx.setLineDash([]); ctx.restore();
+  }
+}
+/* trace controls */
+$('traceOp').addEventListener('input', e=>{ if(IMPORT.trace){ IMPORT.trace.opacity=e.target.value/100; draw(); } });
+$('traceScale').addEventListener('input', e=>{ if(IMPORT.trace){ IMPORT.trace.scale=e.target.value/100; draw(); } });
+$('traceLock').addEventListener('change', e=>{ if(IMPORT.trace){ IMPORT.trace.locked=e.target.checked; draw(); toast(e.target.checked?'🔒 Image locked':'🔓 Image unlocked — drag to move'); } });
+$('traceRemove').addEventListener('click', ()=>{ IMPORT.trace=null; $('traceCtrl').classList.remove('show'); draw(); toast('Tracing image removed'); });
+
+/* let the user DRAG the tracing image when unlocked (and no draw in progress) */
+let traceDrag=null;
+cv.addEventListener('mousedown', e=>{
+  const t=IMPORT.trace; if(!t || t.locked) return;
+  const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  if(mx>=t.x && mx<=t.x+t.baseW*t.scale && my>=t.y && my<=t.y+t.baseH*t.scale){
+    /* only grab if user isn't mid-line and holding Shift (avoids clashing with draw) */
+    if(e.shiftKey){ traceDrag={dx:mx-t.x, dy:my-t.y}; e.stopImmediatePropagation(); }
+  }
+}, true);
+window.addEventListener('mousemove', e=>{
+  if(!traceDrag||!IMPORT.trace) return;
+  const r=cv.getBoundingClientRect();
+  IMPORT.trace.x=e.clientX-r.left-traceDrag.dx;
+  IMPORT.trace.y=e.clientY-r.top-traceDrag.dy;
+  draw();
+});
+window.addEventListener('mouseup', ()=> traceDrag=null);
+
+/* ---------- (C) SVG → wall lines ---------- */
+function importSVG(text){
+  try{
+    const doc=new DOMParser().parseFromString(text,'image/svg+xml');
+    const added=[];
+    /* <line> elements */
+    doc.querySelectorAll('line').forEach(el=>{
+      added.push({a:[+el.getAttribute('x1'),+el.getAttribute('y1')], b:[+el.getAttribute('x2'),+el.getAttribute('y2')]});
+    });
+    /* <polyline>/<polygon> points */
+    doc.querySelectorAll('polyline,polygon').forEach(el=>{
+      const pts=(el.getAttribute('points')||'').trim().split(/\s+/).map(p=>p.split(',').map(Number));
+      for(let i=0;i<pts.length-1;i++) added.push({a:pts[i], b:pts[i+1]});
+      if(el.tagName==='polygon'&&pts.length>2) added.push({a:pts[pts.length-1], b:pts[0]});
+    });
+    /* <rect> as 4 walls */
+    doc.querySelectorAll('rect').forEach(el=>{
+      const x=+el.getAttribute('x')||0, y=+el.getAttribute('y')||0, w=+el.getAttribute('width'), h=+el.getAttribute('height');
+      added.push({a:[x,y],b:[x+w,y]},{a:[x+w,y],b:[x+w,y+h]},{a:[x+w,y+h],b:[x,y+h]},{a:[x,y+h],b:[x,y]});
+    });
+    if(!added.length){ impBadge('SVG mein lines nahi milin',false); return; }
+    fitAndAddLines(added, 'SVG');
+  }catch(e){ impBadge('SVG parse fail: '+e.message,false); }
+}
+
+/* ---------- (D) DXF → wall lines (lightweight parser) ---------- */
+function importDXF(text){
+  try{
+    const lines=text.split(/\r\n|\r|\n/);
+    const added=[]; let i=0;
+    /* walk the ENTITIES: find LINE (10,20,11,21) and LWPOLYLINE (10,20 repeated) */
+    while(i<lines.length){
+      const code=lines[i].trim(), val=(lines[i+1]||'').trim();
+      if(code==='0' && val==='LINE'){
+        const e=readDXFpairs(lines, i+2);
+        if(e['10']!=null&&e['11']!=null) added.push({a:[+e['10'],-+e['20']], b:[+e['11'],-+e['21']]});
+      }
+      if(code==='0' && val==='LWPOLYLINE'){
+        const pts=readDXFpolyline(lines, i+2);
+        for(let k=0;k<pts.length-1;k++) added.push({a:pts[k], b:pts[k+1]});
+      }
+      i+=2;
+    }
+    if(!added.length){ impBadge('DXF mein LINE/POLYLINE nahi milin',false); return; }
+    fitAndAddLines(added, 'DXF');
+  }catch(e){ impBadge('DXF parse fail: '+e.message,false); }
+}
+function readDXFpairs(lines, start){
+  const e={}; let i=start;
+  while(i<lines.length && lines[i].trim()!=='0'){
+    e[lines[i].trim()] = lines[i+1]?.trim(); i+=2;
+  }
+  return e;
+}
+function readDXFpolyline(lines, start){
+  const pts=[]; let i=start, x=null;
+  while(i<lines.length && lines[i].trim()!=='0'){
+    const c=lines[i].trim(), v=lines[i+1]?.trim();
+    if(c==='10') x=+v;
+    if(c==='20' && x!=null){ pts.push([x, -+v]); x=null; }
+    i+=2;
+  }
+  return pts;
+}
+
+/* shared: scale imported vector lines to fit the canvas nicely */
+function fitAndAddLines(added, fmt){
+  const xs=added.flatMap(l=>[l.a[0],l.b[0]]), ys=added.flatMap(l=>[l.a[1],l.b[1]]);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const cw=cv.clientWidth, ch=cv.clientHeight;
+  const sc=Math.min(cw*0.7/(maxX-minX||1), ch*0.7/(maxY-minY||1));
+  const ox=(cw-(maxX-minX)*sc)/2, oy=(ch-(maxY-minY)*sc)/2;
+  const mapped=added.map(l=>({
+    a:[ox+(l.a[0]-minX)*sc, oy+(l.a[1]-minY)*sc],
+    b:[ox+(l.b[0]-minX)*sc, oy+(l.b[1]-minY)*sc]
+  })).filter(l=>dist(l.a,l.b)>1);
+  state.lines.push(...mapped);
+  syncStats(); draw();
+  impBadge(fmt+' imported ✓ — '+mapped.length+' lines added', true);
+  toast('📐 '+fmt+' se '+mapped.length+' deewarein aa gayein');
+}
+
+/* ---------- (E) 3D model (OBJ/STL) → shown in 3D view ---------- */
+IMPORT.model3D=null;
+function import3D(kind, data){
+  if(!three()){ impBadge('3D model ke liye pehle 3D View kholein (engine load karega)', false); open3D(); IMPORT._pending={kind,data}; return; }
+  try{
+    const geo = kind==='obj' ? parseOBJ(data) : parseSTL(data);
+    if(!geo){ impBadge(kind.toUpperCase()+' parse fail',false); return; }
+    IMPORT.model3D={geo, kind};
+    impBadge(kind.toUpperCase()+' 3D model loaded ✓ — 3D View mein dekhein', true);
+    if(!V3D.on) open3D(); else { populateModel(); applySun(); }
+    toast('🧊 3D model add ho gaya — 3D View kholein');
+  }catch(e){ impBadge('3D load fail: '+e.message,false); }
+}
+/* minimal OBJ parser (vertices + faces) */
+function parseOBJ(text){
+  const T=three(); const v=[], idx=[];
+  text.split(/\r?\n/).forEach(ln=>{
+    const p=ln.trim().split(/\s+/);
+    if(p[0]==='v') v.push(+p[1],+p[2],+p[3]);
+    else if(p[0]==='f'){
+      const f=p.slice(1).map(s=>parseInt(s.split('/')[0])-1);
+      for(let k=1;k<f.length-1;k++) idx.push(f[0],f[k],f[k+1]);
+    }
+  });
+  if(!v.length) return null;
+  const g=new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(v,3));
+  if(idx.length) g.setIndex(idx);
+  g.computeVertexNormals(); return g;
+}
+/* minimal binary STL parser */
+function parseSTL(buffer){
+  const T=three(); const dv=new DataView(buffer);
+  const tri=dv.getUint32(80,true); const pos=[];
+  let o=84;
+  for(let i=0;i<tri;i++){
+    o+=12; // skip normal
+    for(let j=0;j<3;j++){ pos.push(dv.getFloat32(o,true),dv.getFloat32(o+4,true),dv.getFloat32(o+8,true)); o+=12; }
+    o+=2; // attr
+  }
+  if(!pos.length) return null;
+  const g=new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos,3));
+  g.computeVertexNormals(); return g;
+}
+
+/* wire the imported model into the 3D scene builder */
+const _populateModel = typeof populateModel==='function' ? populateModel : null;
+
+/* ---------- triggers: button, dialog, drag-drop ---------- */
+$('toolImport').addEventListener('click', ()=> $('fileInput').click());
+$('fileInput').addEventListener('change', e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
+
+const stageEl=document.querySelector('.stage');
+['dragenter','dragover'].forEach(ev=> stageEl.addEventListener(ev, e=>{ e.preventDefault(); stageEl.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev=> stageEl.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='drop'||e.target===stageEl) stageEl.classList.remove('dragover'); }));
+stageEl.addEventListener('drop', e=>{ e.preventDefault(); stageEl.classList.remove('dragover'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+/* ============================================================
+   REQUIREMENTS CHECKLIST + FLOOR PLAN GENERATOR
+   (original first-app feature, adapted to the drafting board)
+   Plot size aata hai Math Engine ke activeArea se.
+   ============================================================ */
+const REQS = [
+  {id:'bed',    en:'Bedrooms',            ur:'بیڈ روم',            type:'count', def:2},
+  {id:'bath',   en:'Bathrooms',           ur:'واش روم',            type:'count', def:2},
+  {id:'kitchen',en:'Kitchen',             ur:'کچن',                type:'count', def:1},
+  {id:'draw',   en:'Drawing / Guest Room',ur:'ڈرائنگ روم',         type:'count', def:1},
+  {id:'lounge', en:'TV Lounge / Living',  ur:'ٹی وی لاؤنج',        type:'count', def:1},
+  {id:'porch',  en:'Porch / Car Parking', ur:'پورچ / گاڑی',        type:'opt', opts:['Small','Large'], def:'Small'},
+  {id:'stair',  en:'Staircase',           ur:'سیڑھیاں',            type:'opt', opts:['Inside','Outside'], def:'Inside'},
+  {id:'store',  en:'Store Room',          ur:'اسٹور روم',          type:'count', def:1},
+  {id:'laundry',en:'Laundry Area',        ur:'لانڈری',             type:'flag'},
+  {id:'open',   en:'Open Space / Lawn',   ur:'صحن / لان',          type:'opt', opts:['Front','Back','Side'], def:'Front'}
+];
+const reqState = {};
+const floorPlan = { floors:null, view:0, count:1 };
+
+(function buildReqRows(){
+  const box=$('reqList'); if(!box) return;
+  REQS.forEach(r=>{
+    reqState[r.id]={on:['bed','bath','kitchen','lounge','porch','open'].includes(r.id), count:r.def||1, opt:r.def};
+    const row=document.createElement('div');
+    row.className='req'+(reqState[r.id].on?' on':'');
+    let ctrl='';
+    if(r.type==='count') ctrl=`<div class="ctr"><button data-a="-">−</button><span class="v">${r.def}</span><button data-a="+">+</button></div>`;
+    else if(r.type==='opt') ctrl=`<div class="ctr"><select>${r.opts.map(o=>`<option ${o===r.def?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    else ctrl=`<div class="ctr"></div>`;
+    row.innerHTML=`<input type="checkbox" ${reqState[r.id].on?'checked':''}><div class="nm">${r.en}<span class="urdu">${r.ur}</span></div>${ctrl}`;
+    box.appendChild(row);
+    const cb=row.querySelector('input[type=checkbox]');
+    cb.addEventListener('change',()=>{ reqState[r.id].on=cb.checked; row.classList.toggle('on',cb.checked); if(floorPlan.floors) genFloorPlan(); });
+    row.querySelectorAll('.ctr button').forEach(b=>b.addEventListener('click',()=>{
+      const s=reqState[r.id]; s.count=Math.min(9,Math.max(1,s.count+(b.dataset.a==='+'?1:-1)));
+      row.querySelector('.v').textContent=s.count; if(floorPlan.floors) genFloorPlan();
+    }));
+    const sel=row.querySelector('.ctr select');
+    if(sel) sel.addEventListener('change',()=>{ reqState[r.id].opt=sel.value; if(floorPlan.floors) genFloorPlan(); });
+  });
+})();
+
+/* floor count */
+$('floorSeg')?.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  $('floorSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); floorPlan.count=+b.dataset.v; floorPlan.view=0;
+  if(floorPlan.floors) genFloorPlan();
+}));
+
+/* enable Generate button when a plot exists */
+function refreshGenBtn(){ const b=$('btnGen'); if(b) b.disabled = !(activeArea.sqft>0); }
+
+/* ---- floor plan generation (rectangle from plot area) ---- */
+function room(id,nm,x,y,w,h){return{id,nm,x,y,w,h}}
+function roomList(fl){
+  const list=[]; const add=(id,nm,w)=>list.push({id,nm,w});
+  const c=id=>reqState[id].on?reqState[id].count:0, N=floorPlan.count;
+  if(fl===0){
+    for(let i=0;i<c('draw');i++) add('draw','Drawing ڈرائنگ',1.1);
+    for(let i=0;i<c('lounge');i++) add('lounge','TV Lounge لاؤنج',1.35);
+    for(let i=0;i<c('kitchen');i++) add('kitchen','Kitchen کچن',0.75);
+    const beds=Math.ceil(c('bed')/N); for(let i=0;i<beds;i++) add('bed','Bedroom '+(i+1),1.0);
+    const baths=Math.ceil(c('bath')/N); for(let i=0;i<baths;i++) add('bath','Bath 🚿',0.34);
+    if(c('store')) add('store','Store اسٹور',0.4);
+    if(reqState.laundry.on) add('laundry','Laundry',0.3);
+    if(reqState.stair.on && N>1) add('stair','Stairs سیڑھیاں',0.42);
+  } else {
+    const beds=Math.floor(c('bed')/N)||1; for(let i=0;i<beds;i++) add('bed','Bedroom '+(i+1),1.0);
+    const baths=Math.max(1,Math.floor(c('bath')/N)); for(let i=0;i<baths;i++) add('bath','Bath 🚿',0.34);
+    add('lounge','Family لاؤنج',1.2);
+    if(reqState.stair.on) add('stair','Stairs سیڑھیاں',0.42);
+    add('terrace','Terrace ٹیرس',0.7);
+  }
+  return list;
+}
+function packRooms(x,y,w,h,list){
+  if(!list.length||w<3||h<3) return [];
+  const out=[];
+  (function split(x,y,w,h,items){
+    if(!items.length) return;
+    if(items.length===1){ out.push(room(items[0].id,items[0].nm,x,y,w,h)); return; }
+    const tot=items.reduce((s,i)=>s+i.w,0); let acc=0,i=0;
+    while(i<items.length-1 && acc+items[i].w<tot/2){ acc+=items[i].w; i++; }
+    const g1=items.slice(0,Math.max(1,i)), g2=items.slice(Math.max(1,i));
+    const f=g1.reduce((s,i)=>s+i.w,0)/tot;
+    if(w>=h){ split(x,y,w*f,h,g1); split(x+w*f,y,w*(1-f),h,g2); }
+    else    { split(x,y,w,h*f,g1); split(x,y+h*f,w,h*(1-f),g2); }
+  })(x,y,w,h,list);
+  return out;
+}
+function genFloorPlan(){
+  if(!(activeArea.sqft>0)){ toast('Pehle plot measurements bharein'); return; }
+  /* derive a working rectangle from the plot area + math-engine sides */
+  const A=engInput('eA'),B=engInput('eB'),C=engInput('eC'),D=engInput('eD');
+  let W,H;
+  if(A&&B&&C&&D){ W=(A+C)/2; H=(B+D)/2; }
+  else { const s=Math.sqrt(activeArea.sqft); W=s; H=s; }
+  const floors=[];
+  for(let fl=0; fl<floorPlan.count; fl++){
+    let x=0,y=0,w=W,h=H; const placed=[];
+    if(reqState.open.on){
+      const dpt=Math.max(6,H*0.14), side=reqState.open.opt;
+      if(side==='Front'){ placed.push(room('open','Lawn صحن',x,y,w,dpt)); y+=dpt; h-=dpt; }
+      else if(side==='Back'){ placed.push(room('open','Lawn صحن',x,y+h-dpt,w,dpt)); h-=dpt; }
+      else { const dw=Math.max(5,W*0.14); placed.push(room('open','Open گلی',x+w-dw,y,dw,h)); w-=dw; }
+    }
+    if(reqState.porch.on && fl===0){
+      const big=reqState.porch.opt==='Large';
+      const pw=Math.min(w*0.42,big?16:11), ph=Math.min(h*0.3,big?20:16);
+      placed.push(room('porch','Porch 🚗',x,y,pw,ph));
+      const rooms=roomList(fl); const head=rooms.splice(0,Math.max(1,Math.round(rooms.length*0.3)));
+      placed.push(...packRooms(x+pw,y,w-pw,ph,head));
+      placed.push(...packRooms(x,y+ph,w,h-ph,rooms));
+    } else {
+      placed.push(...packRooms(x,y,w,h,roomList(fl)));
+    }
+    floors.push({placed,W,H});
+  }
+  floorPlan.floors=floors;
+  buildFloorTabs();
+  setView('floor');
+  toast('🏠 Floor plan ban gaya — '+floorPlan.count+' floor(s)');
+}
+$('btnGen').addEventListener('click', genFloorPlan);
+
+function buildFloorTabs(){
+  const el=$('floorTabs'); if(!el) return;
+  if(!floorPlan.floors || floorPlan.count<2){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex'; el.innerHTML='';
+  const names=['Ground','First','Second'];
+  for(let i=0;i<floorPlan.count;i++){
+    const b=document.createElement('button'); b.textContent=names[i]; b.className=i===floorPlan.view?'on':'';
+    b.onclick=()=>{ floorPlan.view=i; buildFloorTabs(); draw(); };
+    el.appendChild(b);
+  }
+}
+
+/* room colours */
+const RCOL={open:'rgba(74,222,128,.13)',porch:'rgba(240,180,68,.14)',bed:'rgba(90,162,255,.12)',bath:'rgba(125,211,252,.14)',kitchen:'rgba(251,146,60,.13)',draw:'rgba(192,132,252,.13)',lounge:'rgba(90,162,255,.09)',store:'rgba(148,163,184,.12)',laundry:'rgba(125,211,252,.10)',stair:'rgba(240,180,68,.10)',terrace:'rgba(74,222,128,.10)'};
+const RSTK={open:'#4ade80',porch:'#f0b444',bed:'#5aa2ff',bath:'#7dd3fc',kitchen:'#fb923c',draw:'#c084fc',lounge:'#5aa2ff',store:'#94a3b8',laundry:'#7dd3fc',stair:'#f0b444',terrace:'#4ade80'};
+
+function drawFloorPlan(){
+  const w=cv.clientWidth, h=cv.clientHeight;
+  ctx.fillStyle='#0d1520'; ctx.fillRect(0,0,w,h);
+  /* faint grid */
+  ctx.strokeStyle='#16243a'; ctx.lineWidth=1;
+  for(let x=0;x<w;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  if(!floorPlan.floors){
+    ctx.font='500 15px Space Grotesk'; ctx.fillStyle='#8fa3bd'; ctx.textAlign='center';
+    ctx.fillText('"Generate Floor Plan" dabayein — Requirements Checklist se', w/2, h/2-10);
+    ctx.font='400 13px Space Grotesk'; ctx.fillStyle='#5d7291';
+    ctx.fillText('(pehle plot measurements zaroori hain)', w/2, h/2+14);
+    return;
+  }
+  const fl=floorPlan.floors[Math.min(floorPlan.view,floorPlan.floors.length-1)];
+  const pad=80;
+  const sc=Math.min((w-pad*2)/fl.W,(h-pad*2)/fl.H);
+  const ox=(w-fl.W*sc)/2, oy=(h-fl.H*sc)/2;
+  ctx.save(); ctx.shadowColor='rgba(90,162,255,.4)'; ctx.shadowBlur=12;
+  ctx.strokeStyle='#5aa2ff'; ctx.lineWidth=3; ctx.strokeRect(ox,oy,fl.W*sc,fl.H*sc); ctx.restore();
+  fl.placed.forEach(r=>{
+    const x=ox+r.x*sc,y=oy+r.y*sc,rw=r.w*sc,rh=r.h*sc;
+    ctx.fillStyle=RCOL[r.id]||'rgba(255,255,255,.06)'; ctx.fillRect(x,y,rw,rh);
+    ctx.strokeStyle=RSTK[r.id]||'#8fa3bd'; ctx.lineWidth=1.2; ctx.strokeRect(x+1,y+1,rw-2,rh-2);
+    if(rw>46&&rh>28){
+      ctx.textAlign='center';
+      ctx.font='600 12px Space Grotesk'; ctx.fillStyle='#e8eef7'; ctx.fillText(r.nm,x+rw/2,y+rh/2-2,rw-8);
+      ctx.font='500 10.5px Space Grotesk'; ctx.fillStyle='#8fa3bd';
+      ctx.fillText(r.w.toFixed(0)+"'×"+r.h.toFixed(0)+"'",x+rw/2,y+rh/2+13);
+    }
+  });
+  ctx.font='600 12px Space Grotesk'; ctx.fillStyle='#f0b444'; ctx.textAlign='center';
+  ctx.fillText('◄ FRONT — سامنے (Road side) ►', ox+fl.W*sc/2, oy-14);
+  const names=['GROUND FLOOR — گراؤنڈ فلور','FIRST FLOOR — پہلی منزل','SECOND FLOOR — دوسری منزل'];
+  ctx.fillStyle='#8fa3bd'; ctx.font='700 13px Space Grotesk';
+  ctx.fillText(names[Math.min(floorPlan.view,2)], ox+fl.W*sc/2, oy+fl.H*sc+26);
+}
+
+/* ---- view switching (board vs floor plan) ---- */
+const boardView={mode:'board'};
+function setView(v){
+  boardView.mode=v;
+  document.querySelectorAll('.bt-btn').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  buildFloorTabs();
+  draw();
+}
+document.querySelectorAll('.bt-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+
+/* hook floor-plan rendering into the draw pipeline */
+const _drawForFloor = draw;
+draw = function(){
+  if(boardView.mode==='floor'){ drawFloorPlan(); return; }
+  _drawForFloor();
+};
+
+/* enable Generate button whenever the plot area changes */
+const _setActiveAreaReq = setActiveArea;
+setActiveArea = function(sqft, src){ _setActiveAreaReq(sqft, src); refreshGenBtn(); };
+
+/* ============================================================
+   GUIDE / HELP — feature slideshow + user manual
+   ============================================================ */
+const SLIDES = [
+  {cover:true},
+  {icon:'📐', badge:'Step 1', title:'Plot <span>Measurements</span>', urdu:'پلاٹ کی پیمائش',
+   points:[
+     ['📏','<b>4 sides + diagonal</b> bharein (Front, Back, Left, Right). Teerha plot ho to diagonal bhi.'],
+     ['🔢','Feet ya Meters — dono chalte hain, app khud convert karti hai.'],
+     ['✅','Area foran bante hain: <b>Sq Ft, Gaz, Marla</b> — bina kuch dabaye.']
+   ]},
+  {icon:'✏️', badge:'Feature', title:'2D <span>Drafting Board</span>', urdu:'ڈرائنگ بورڈ',
+   points:[
+     ['✏️','<b>Draw Line</b>: click → move → click. Grid par khud snap hoti hai.'],
+     ['📐','<b>Measure Area</b>: points laga kar shape band karein — rakba mil jata hai.'],
+     ['🔄','Scale (1:100 / 1:50) aur Units upar dayein switch hote hain.']
+   ]},
+  {icon:'🧮', badge:'Feature', title:'Math Engine + <span>PK Units</span>', urdu:'حساب اور پاکستانی یونٹ',
+   points:[
+     ['📐','<b>Heron\'s Formula</b> se teerha plot ka bilkul sahi rakba.'],
+     ['🇵🇰','Marla / Kanal / Sarsahi / Gaz — sab ek saath.'],
+     ['🏙','Marla standard chunein: Rural 272.25, Lahore 225, Society 250.']
+   ]},
+  {icon:'📋', badge:'Feature', title:'Regulatory <span>Setbacks</span>', urdu:'قانونی حدِ تعمیر',
+   points:[
+     ['🏛','Authority chunein: <b>LDA, CDA, RUDA, SBCA, PDA, QDA</b>.'],
+     ['🚧','Front/Rear setback lines khud plot par dashed ban jati hain.'],
+     ['🌆','SBCA (Karachi) گز ke hisaab se, baaki Marla ke hisaab se.']
+   ]},
+  {icon:'📤', badge:'Feature', title:'Field <span>Survey</span>', urdu:'فیلڈ سروے',
+   points:[
+     ['⭐','<b>Charon taraf kya hai</b>: Road, Gali, Ghar, Park, Shops, Khali plot.'],
+     ['💧','Utility Pins: Water / Gas / Electric — canvas par geo-tag karein.'],
+     ['🪨','Road width + Soil type — corner plot khud detect hoti hai.']
+   ]},
+  {icon:'🌞', badge:'Feature', title:'Geo-Energy <span>Simulator</span>', urdu:'سورج، ہوا، شور',
+   points:[
+     ['☀️','<b>Sun Path</b>: waqt slider hilao, saaye chalte hain (subah lambe, dopahar chhote).'],
+     ['🌬️','<b>Wind</b>: garmi mein SW se, sardi mein NE se — animated arrows.'],
+     ['🔊','<b>Noise</b>: road ki taraf laal (shor), plot ke andar hara (pursukoon).']
+   ]},
+  {icon:'🏠', badge:'Feature', title:'Requirements + <span>Floor Plan</span>', urdu:'ضروریات اور نقشہ',
+   points:[
+     ['✅','Bedrooms, Bath, Kitchen, Lounge... tick karein, tadaad set karein.'],
+     ['🏢','Single / Double / Triple story chunein.'],
+     ['⚡','<b>Generate Floor Plan</b> — rooms khud arrange ho kar naqsha ban jata hai.']
+   ]},
+  {icon:'📊', badge:'Feature', title:'BOM &amp; <span>Cost</span>', urdu:'میٹریل اور لاگت',
+   points:[
+     ['🧱','Bricks, Cement, Sand, Tiles — wall length se khud calculate.'],
+     ['💰','Rates editable — total lagat live PKR mein badalti hai.'],
+     ['🖨','Branded report print / PDF ban jati hai.']
+   ]},
+  {icon:'🧊', badge:'Feature', title:'3D <span>View</span>', urdu:'تین جہتی منظر',
+   points:[
+     ['🔄','Aapki 2D walls 10ft oonchi 3D deewarein ban jati hain.'],
+     ['🚶','Orbit se ghumao ya Walk se andar chalo.'],
+     ['☀️','Simulator ka sooraj 3D mein asli roshni aur saaya banata hai.']
+   ]},
+  {icon:'📤', badge:'Feature', title:'Import &amp; <span>Export</span>', urdu:'فائل لوڈ اور محفوظ',
+   points:[
+     ['🖼','<b>Tasveer</b> upload → purane naqshe par trace karein.'],
+     ['📐','DXF / SVG → deewarein khud aa jati hain. OBJ/STL → 3D model.'],
+     ['💾','<b>Export Project</b> (JSON) → sab kuch save, wapis import bhi.']
+   ]},
+  {icon:'🤝', badge:'Feature', title:'Team <span>Collaboration</span>', urdu:'ٹیم ورک',
+   points:[
+     ['👥','Role chunein: Owner, Architect, Engineer, Client.'],
+     ['💬','Time-stamped comments aur approvals.'],
+     ['✅','Sab sign-off = ~60% tez municipality approval.']
+   ]},
+  {finale:true}
+];
+
+function renderSlide(i){
+  const s=SLIDES[i]; const v=$('slideView');
+  if(s.cover){
+    v.innerHTML=`<div class="slide on slide-cover">
+      <div class="logo-big"><svg width="38" height="38" viewBox="0 0 24 24" fill="none"><path d="M3 21V8l7-5 11 6v12" stroke="#5aa2ff" stroke-width="1.6"/><path d="M3 21h18M9 21v-6h6v6" stroke="#f0b444" stroke-width="1.6"/></svg></div>
+      <span class="s-badge">Complete Guide</span>
+      <h3>Plot Planner <span>Pro</span></h3>
+      <div class="s-urdu">گھر کے نقشے کا مکمل سمارٹ اوزار</div>
+      <p style="font-size:15px;color:var(--muted);max-width:520px;margin:0 auto;line-height:1.7">Yeh slideshow app ke saare features dikhata hai. <b style="color:var(--amber)">Next →</b> dabate jayein, ya "User Manual" tab se step-by-step guide parhein.</p>
+      <div class="credit">Developed by <b>Syed Rizwan Ahmed</b> · Rizwan's AI Agency</div>
+    </div>`;
+  } else if(s.finale){
+    v.innerHTML=`<div class="slide on slide-cover">
+      <span class="s-icon">🎉</span>
+      <span class="s-badge">Ready!</span>
+      <h3>Ab <span>Shuru</span> Karein!</h3>
+      <div class="s-urdu">بس پیمائش درج کریں اور کمال دیکھیں</div>
+      <p style="font-size:15px;color:var(--muted);max-width:520px;margin:0 auto;line-height:1.7">Har feature ek doosre se juda hua hai — pehle plot measurements bharein, phir har tool khud kaam karne lagega.</p>
+      <div class="credit">© ${new Date().getFullYear()} <b>Rizwan's AI Agency</b> · rizwans-agency.vercel.app</div>
+    </div>`;
+  } else {
+    v.innerHTML=`<div class="slide on">
+      <span class="s-icon">${s.icon}</span>
+      <span class="s-badge">${s.badge}</span>
+      <h3>${s.title}</h3>
+      <div class="s-urdu">${s.urdu}</div>
+      <ul>${s.points.map(p=>`<li><span class="li-ic">${p[0]}</span><span>${p[1]}</span></li>`).join('')}</ul>
+    </div>`;
+  }
+  /* dots + counter */
+  $('slideDots').innerHTML=SLIDES.map((_,k)=>`<i class="${k===i?'on':''}" data-k="${k}"></i>`).join('');
+  $('slideDots').querySelectorAll('i').forEach(d=>d.onclick=()=>{helpState.slide=+d.dataset.k; renderSlide(helpState.slide);});
+  $('slideCount').textContent=(i+1)+' / '+SLIDES.length;
+  $('slidePrev').disabled=i===0;
+  $('slideNext').disabled=i===SLIDES.length-1;
+}
+
+const helpState={slide:0};
+$('slidePrev').onclick=()=>{ if(helpState.slide>0){helpState.slide--; renderSlide(helpState.slide);} };
+$('slideNext').onclick=()=>{ if(helpState.slide<SLIDES.length-1){helpState.slide++; renderSlide(helpState.slide);} };
+
+/* keyboard arrows inside slideshow */
+window.addEventListener('keydown',e=>{
+  if(!$('helpOverlay').classList.contains('open')) return;
+  if($('slidesWrap').classList.contains('hide')) return;
+  if(e.key==='ArrowRight') $('slideNext').click();
+  if(e.key==='ArrowLeft') $('slidePrev').click();
+  if(e.key==='Escape') closeHelp();
+});
+
+/* ---- USER MANUAL content ---- */
+const MANUAL_HTML = `
+<h3>📐 1 · Plot Ki Pemaish (Sabse Pehle)</h3>
+<div class="m-step"><span class="m-num">1</span><span>Right sidebar mein <b>"1 · Plot Measurements"</b> mein Front, Back, Left, Right bharein. <span class="m-urdu">چاروں اطراف کی پیمائش درج کریں۔</span></span></div>
+<div class="m-step"><span class="m-num">2</span><span>Teerha (irregular) plot ho to <b>Diagonal</b> bhi bharein — is se rakba bilkul sahi banta hai.</span></div>
+<div class="m-step"><span class="m-num">3</span><span>Neeche <b>Sq Ft, Gaz, Marla</b> khud aa jayenge. Feet/Meters dropdown se unit badal sakte hain.</span></div>
+<div class="m-tip"><b>Tip:</b> Jab tak yeh 4 measurements na bharein, kuch features (Floor Plan, Setback) intezaar karte hain.</div>
+
+<h3>✏️ 2 · Drafting Board (Lakeerein & Rakba)</h3>
+<div class="m-step"><span class="m-num">1</span><span><b>Draw Line</b> tool: canvas par click karein (shuru), mouse hilayein, phir click (khatam). Line grid par khud snap hoti hai.</span></div>
+<div class="m-step"><span class="m-num">2</span><span><b>Measure Area</b>: shape ke kinaron par points lagayein, pehle point par wapis click ya double-click se band karein.</span></div>
+<div class="m-tip"><b>Shortcuts:</b> <span class="m-key">L</span> Line · <span class="m-key">A</span> Area · <span class="m-key">Esc</span> Cancel · <span class="m-key">Ctrl+Z</span> Undo</div>
+
+<h3>📋 3 · Authority Setback (Qanooni Had)</h3>
+<div class="m-step"><span class="m-num">1</span><span>Right sidebar mein <b>"Development Authority Rules"</b> se apni authority chunein (LDA, CDA, RUDA, SBCA, PDA, QDA).</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Plot ke size ke hisaab se front/rear setback lines dashed rang mein khud ban jayengi — jahan tameer nahi kar sakte.</span></div>
+
+<h3>⭐ 4 · Field Survey (Charon Taraf)</h3>
+<div class="m-step"><span class="m-num">1</span><span>Neeche <b>"Field Survey Inventory"</b> patti par click kar ke kholein.</span></div>
+<div class="m-step"><span class="m-num">2</span><span><b>Charon Taraf Kya Hai</b>: Front/Right/Rear/Left par Road, Gali, Ghar, Park, Shops chunein. Canvas par labels aa jate hain.</span></div>
+<div class="m-step"><span class="m-num">3</span><span><b>Utility Pins</b>: button dabayein (Water/Gas/Electric), phir canvas par click kar ke pin lagayein.</span></div>
+<div class="m-tip"><b>Corner Plot:</b> Do se zyada taraf road/gali chunein — app khud "Corner Plot detected" bata degi.</div>
+
+<h3>🌞 5 · Geo-Energy Simulator</h3>
+<div class="m-step"><span class="m-num">1</span><span>Left sidebar mein <b>"Geo-Energy Simulator"</b> kholein. Time slider, Season, Facing set karein.</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Checkboxes se <b>Sun Path, Wind, Noise</b> on karein — canvas par overlays aa jayenge.</span></div>
+<div class="m-step"><span class="m-num">3</span><span>Neeche <b>Passive Design Tips</b> khud aati hain (kaunsi diwar par kam khidki, ventilation kahan).</span></div>
+
+<h3>🏠 6 · Requirements + Floor Plan</h3>
+<div class="m-step"><span class="m-num">1</span><span>Right sidebar mein <b>"Requirements Checklist"</b> mein jo chahiye tick karein (Bedroom, Bath, Kitchen...).</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Har item ka <b>+/−</b> se tadaad set karein. Floors (Single/Double/Triple) chunein.</span></div>
+<div class="m-step"><span class="m-num">3</span><span><b>⚡ Generate Floor Plan</b> dabayein — canvas ke upar <b>"🏠 Floor Plan"</b> tab mein naqsha ban jayega.</span></div>
+
+<h3>📊 7 · BOM &amp; Cost Estimator</h3>
+<div class="m-step"><span class="m-num">1</span><span>Upar <b>"BOM &amp; Cost"</b> button dabayein.</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Bricks, Cement, Sand, Tiles ki quantity khud nikalti hai. <b>Rates</b> apni market ke hisaab se badlein.</span></div>
+<div class="m-step"><span class="m-num">3</span><span><b>Print Branded Report</b> se PDF banayein.</span></div>
+
+<h3>🧊 8 · 3D View</h3>
+<div class="m-step"><span class="m-num">1</span><span>Upar <b>"3D View"</b> dabayein. Aapki 2D walls 3D deewarein ban jayengi.</span></div>
+<div class="m-step"><span class="m-num">2</span><span><b>Orbit</b>: mouse drag se ghumao, scroll se zoom. <b>Walk</b>: W/A/S/D se andar chalo.</span></div>
+<div class="m-tip"><b>Note:</b> 3D pehli dafa internet chahta hai (engine load hoti hai). Uske baad chal jata hai.</div>
+
+<h3>📤 9 · Import / Export</h3>
+<div class="m-step"><span class="m-num">1</span><span><b>Import File</b> (left sidebar) ya file ko canvas par <b>drag-drop</b> karein.</span></div>
+<div class="m-step"><span class="m-num">2</span><span><b>Tasveer</b> (PNG/JPG) = tracing layer. <b>DXF/SVG</b> = deewarein. <b>OBJ/STL</b> = 3D model. <b>JSON</b> = poora project wapas.</span></div>
+<div class="m-step"><span class="m-num">3</span><span><b>Export Project</b> (gold button) se sab kuch ek JSON file mein save — baad mein wapis kholne ke liye.</span></div>
+
+<h3>🤝 10 · Collaboration</h3>
+<div class="m-step"><span class="m-num">1</span><span>Header mein role chunein (Owner / Architect / Engineer / Client).</span></div>
+<div class="m-step"><span class="m-num">2</span><span><b>Comments</b> button se tabsare likhein aur <b>Approve</b> karein. Sab sign-off = tez approval.</span></div>
+
+<div class="m-tip" style="margin-top:20px"><b>Madad chahiye?</b> Rizwan's AI Agency · rizwans-agency.vercel.app</div>
+`;
+$('manualBody').innerHTML = MANUAL_HTML;
+
+/* ---- open/close + tab switch ---- */
+function openHelp(){ $('helpOverlay').classList.add('open'); if(!helpState._init){ renderSlide(0); helpState._init=true; } }
+function closeHelp(){ $('helpOverlay').classList.remove('open'); }
+$('btnHelp').addEventListener('click', openHelp);
+$('helpClose').addEventListener('click', closeHelp);
+$('helpOverlay').addEventListener('click', e=>{ if(e.target.id==='helpOverlay') closeHelp(); });
+document.querySelectorAll('.help-tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.help-tab').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  const isManual=t.dataset.htab==='manual';
+  $('slidesWrap').classList.toggle('hide',isManual);
+  $('manualWrap').classList.toggle('show',isManual);
+}));
+
+/* ---- print manual ---- */
+$('manualPrint').addEventListener('click', ()=>{
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Plot Planner Pro — User Manual</title>
+    <style>
+      body{font-family:Arial,sans-serif;color:#111;padding:36px;max-width:780px;margin:auto;line-height:1.6}
+      .head{display:flex;align-items:center;border-bottom:3px solid #c99327;padding-bottom:12px;margin-bottom:8px}
+      .head .lg{width:40px;height:40px;background:#0d1520;color:#f0b444;border-radius:8px;display:grid;place-items:center;font-weight:700;margin-right:12px}
+      .head h1{margin:0;font-size:20px}
+      .brand{background:#0d1520;color:#f0b444;font-weight:700;padding:8px 14px;border-radius:8px;font-size:13px;margin:14px 0}
+      .brand span{color:#8fa3bd;font-weight:400}
+      h3{color:#a3751a;border-bottom:1px solid #ddd;padding-bottom:6px;margin:22px 0 10px}
+      .m-step{margin:8px 0;padding-left:34px;position:relative;font-size:14px}
+      .m-num{position:absolute;left:0;top:0;width:24px;height:24px;background:#2563eb;color:#fff;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700}
+      .m-tip{background:#eefdf3;border:1px solid #4ade80;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:13px}
+      .m-key{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:1px 6px;font-size:12px}
+      b{color:#a3751a}.m-urdu{color:#666;font-size:12px}
+      footer{margin-top:28px;border-top:2px solid #c99327;padding-top:10px;font-size:11px;color:#666;display:flex;justify-content:space-between}
+      @media print{.noprint{display:none}}
+    </style></head><body>
+    <div class="head"><div class="lg">▲</div><div><h1>Plot Planner Pro — User Manual</h1><div style="font-size:12px;color:#666">Complete step-by-step guide · مکمل رہنما</div></div></div>
+    <div class="brand">RIZWAN'S AI AGENCY <span>· Developed by Syed Rizwan Ahmed</span></div>
+    ${MANUAL_HTML}
+    <footer><span>© ${new Date().getFullYear()} Rizwan's AI Agency — Syed Rizwan Ahmed</span><span>rizwans-agency.vercel.app</span></footer>
+    <div class="noprint" style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:10px 22px;background:#c99327;color:#1a1200;border:none;border-radius:8px;font-weight:700;cursor:pointer">🖨 Print / Save as PDF</button></div>
+    </body></html>`);
+  w.document.close();
+});
+
+/* ============================================================
+   BRANDING — single source of truth
+   Screen par header/footer/watermark HTML mein hai.
+   Yahan export/print files par lagne wali "mohar" hai.
+   ============================================================ */
+const BRAND = {
+  developer: 'Syed Rizwan Ahmed',
+  agency:    "Rizwan's AI Agency",
+  line:      "Developed by Syed Rizwan Ahmed · Rizwan's AI Agency",
+  website:   'rizwans-agency.vercel.app'
+};
+
+/* Stamp the branding onto ANY canvas before it becomes a file.
+   Draws a semi-transparent bar at the bottom with the credit. */
+function stampBranding(targetCtx, w, h){
+  const barH = Math.max(34, Math.round(h*0.05));
+  targetCtx.save();
+  /* dark strip */
+  targetCtx.fillStyle = 'rgba(11,20,32,0.9)';
+  targetCtx.fillRect(0, h-barH, w, barH);
+  targetCtx.strokeStyle = '#f0b444';
+  targetCtx.lineWidth = 2;
+  targetCtx.beginPath(); targetCtx.moveTo(0, h-barH); targetCtx.lineTo(w, h-barH); targetCtx.stroke();
+  /* diamond accent */
+  const cy = h - barH/2;
+  targetCtx.fillStyle = '#5aa2ff';
+  targetCtx.beginPath();
+  targetCtx.moveTo(20, cy-5); targetCtx.lineTo(25, cy); targetCtx.lineTo(20, cy+5); targetCtx.lineTo(15, cy); targetCtx.closePath();
+  targetCtx.fill();
+  /* agency (gold, bold) + developer */
+  targetCtx.textBaseline = 'middle';
+  targetCtx.font = '700 '+Math.round(barH*0.42)+'px Space Grotesk';
+  targetCtx.fillStyle = '#f0b444';
+  targetCtx.textAlign = 'left';
+  targetCtx.fillText("RIZWAN'S AI AGENCY", 36, cy);
+  const aw = targetCtx.measureText("RIZWAN'S AI AGENCY").width;
+  targetCtx.font = '500 '+Math.round(barH*0.34)+'px Space Grotesk';
+  targetCtx.fillStyle = '#8fa3bd';
+  targetCtx.fillText('  ·  Developed by '+BRAND.developer, 36+aw, cy);
+  /* website on the right */
+  targetCtx.textAlign = 'right';
+  targetCtx.fillStyle = '#5aa2ff';
+  targetCtx.fillText(BRAND.website, w-20, cy);
+  targetCtx.restore();
+}
+
+/* Branded PNG export of the drafting board */
+function exportBrandedPNG(){
+  const w = cv.width, h = cv.height;                 // device-pixel size
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  /* solid background so transparent areas aren't black */
+  octx.fillStyle = '#0d1520'; octx.fillRect(0,0,w,h);
+  octx.drawImage(cv, 0, 0);                            // copy current board
+  /* title strip on top */
+  octx.save();
+  octx.fillStyle = 'rgba(11,20,32,0.85)';
+  octx.fillRect(0,0,w,Math.round(h*0.055));
+  octx.fillStyle = '#e8eef7';
+  octx.font = '700 '+Math.round(h*0.028)+'px Space Grotesk';
+  octx.textBaseline='middle'; octx.textAlign='left';
+  octx.fillText('PLOT PLANNER PRO', 20, h*0.028);
+  octx.textAlign='right'; octx.fillStyle='#8fa3bd';
+  octx.font='500 '+Math.round(h*0.02)+'px Space Grotesk';
+  octx.fillText(new Date().toLocaleDateString('en-GB'), w-20, h*0.028);
+  octx.restore();
+  stampBranding(octx, w, h);                           // branding mohar
+  const a = document.createElement('a');
+  a.download = 'plot-planner-drawing.png';
+  a.href = out.toDataURL('image/png');
+  a.click();
+  toast('🖼 Branded PNG saved · Rizwan\'s AI Agency');
+}
+$('btnPngExport').addEventListener('click', exportBrandedPNG);
+
+$('btnBomPrint').addEventListener('click', printBrandedBOM);
+function printBrandedBOM(){
+  const q = bomQuantities();
+  const rB=+$('rBrick').value||0, rC=+$('rCement').value||0, rS=+$('rSand').value||0, rT=+$('rTile').value||0;
+  const rows = [
+    ['Bricks', q.bricks.toLocaleString('en-PK')+' pcs', 'Rs '+rB, pkr(q.bricks*rB)],
+    ['Cement', q.cementBags+' bags', 'Rs '+rC, pkr(q.cementBags*rC)],
+    ['Sand', q.sandCft.toLocaleString('en-PK')+' cft', 'Rs '+rS, pkr(q.sandCft*rS)],
+    ['Flooring / Tiles', q.tilesSqft.toLocaleString('en-PK')+' sqft', 'Rs '+rT, pkr(q.tilesSqft*rT)]
+  ];
+  const grand = pkr(q.bricks*rB + q.cementBags*rC + q.sandCft*rS + q.tilesSqft*rT);
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Plot Planner Pro — BOM Report</title>
+    <style>
+      body{font-family:Arial,sans-serif;color:#111;padding:36px;max-width:760px;margin:auto}
+      .head{display:flex;align-items:center;border-bottom:3px solid #c99327;padding-bottom:12px;margin-bottom:6px}
+      .head .logo{width:40px;height:40px;background:#0d1520;border-radius:8px;display:grid;place-items:center;color:#f0b444;font-weight:700;margin-right:12px}
+      .head h1{font-size:20px;margin:0}
+      .head .r{margin-left:auto;text-align:right;font-size:12px;color:#555}
+      .brand{background:#0d1520;color:#f0b444;font-weight:700;letter-spacing:.5px;padding:8px 14px;border-radius:8px;font-size:13px;margin:14px 0}
+      .brand span{color:#8fa3bd;font-weight:400}
+      table{width:100%;border-collapse:collapse;margin:16px 0}
+      th{background:#0d1520;color:#f0b444;text-align:left;padding:10px;font-size:12px;letter-spacing:.5px}
+      td{padding:10px;border-bottom:1px solid #ddd;font-size:14px}
+      td:last-child,th:last-child{text-align:right}
+      .grand{background:#eefdf3;border:1px solid #4ade80;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;font-weight:700;font-size:17px}
+      .grand .g{color:#16a34a}
+      .qty{display:flex;gap:12px;margin:8px 0}
+      .qty div{flex:1;background:#f6f8fb;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}
+      .qty b{display:block;font-size:16px;color:#2563eb}
+      .qty small{color:#666;font-size:10px;text-transform:uppercase}
+      footer{margin-top:26px;border-top:2px solid #c99327;padding-top:10px;font-size:11px;color:#666;display:flex;justify-content:space-between}
+      footer b{color:#a3751a}
+      @media print{.noprint{display:none}}
+    </style></head><body>
+    <div class="head">
+      <div class="logo">▲</div>
+      <div><h1>Plot Planner Pro</h1><div style="font-size:12px;color:#666">Bill of Quantities &amp; Cost Estimate</div></div>
+      <div class="r">Date: ${new Date().toLocaleDateString('en-GB')}<br>Area: ${q.tilesSqft.toLocaleString('en-PK')} sqft · ${(activeArea.sqft/272.25||0).toFixed(2)} Marla</div>
+    </div>
+    <div class="brand">RIZWAN'S AI AGENCY <span>· Developed by ${BRAND.developer} · ${BRAND.website}</span></div>
+    <div class="qty">
+      <div><b>${q.wallFt.toFixed(1)} ft</b><small>Wall Length</small></div>
+      <div><b>${q.wallVol.toFixed(0)} cft</b><small>Wall Volume</small></div>
+      <div><b>${q.tilesSqft.toLocaleString('en-PK')} sqft</b><small>Plot Area</small></div>
+    </div>
+    <table><thead><tr><th>Material</th><th>Quantity</th><th>Rate</th><th>Amount</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="grand"><span>Total Estimated Construction Cost</span><span class="g">${grand}</span></div>
+    <footer><span>© ${new Date().getFullYear()} <b>Rizwan's AI Agency</b> — Syed Rizwan Ahmed</span><span>${BRAND.website}</span></footer>
+    <div class="noprint" style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:10px 22px;font-size:14px;background:#c99327;color:#1a1200;border:none;border-radius:8px;cursor:pointer;font-weight:700">🖨 Print / Save as PDF</button></div>
+    </body></html>`);
+  win.document.close();
+}
+
+/* ============================================================
+   PART 5 · §1 — AUTOMATED MATERIAL INVENTORY (BOM) + COST ENGINE
+   ------------------------------------------------------------
+   Pakistani construction benchmarks:
+     Wall height (standard)   : 10 ft
+     Wall thickness (9-inch)  : 0.75 ft
+     Bricks per cubic foot    : 13.5   (9" wall with mortar)
+     Cement (1:6 mortar)      : ≈ 0.034 bags per cft of wall
+     Sand  (1:6 mortar)       : ≈ 0.26 cft per cft of wall
+     Flooring / tiles         : exactly the calculated plot area
+   ============================================================ */
+const BOM = {
+  WALL_H: 10, WALL_T: 0.75, BRICKS_PER_CFT: 13.5,
+  CEMENT_BAG_PER_CFT: 0.034, SAND_CFT_PER_CFT: 0.26
+};
+
+/* total drawn wall length on the canvas, always in FEET */
+function totalWallFeet(){
+  const px = state.lines.reduce((s,l)=>s+dist(l.a,l.b),0);
+  const units = px / pxPerUnit();                       // ft or m
+  return state.unit==='m' ? units * FT_PER_M : units;
+}
+
+/* quantities object — the single source of truth for BOM + export */
+function bomQuantities(){
+  const wallFt  = totalWallFeet();
+  const wallVol = wallFt * BOM.WALL_H * BOM.WALL_T;     // cubic feet
+  return {
+    wallFt,
+    wallVol,
+    bricks:     Math.ceil(wallVol * BOM.BRICKS_PER_CFT),
+    cementBags: Math.ceil(wallVol * BOM.CEMENT_BAG_PER_CFT * 10) / 10,
+    sandCft:    Math.round(wallVol * BOM.SAND_CFT_PER_CFT),
+    tilesSqft:  Math.round(activeArea.sqft || 0)
+  };
+}
+
+function pkr(n){
+  if(n>=1e7) return 'Rs '+(n/1e7).toFixed(2)+' Crore';
+  if(n>=1e5) return 'Rs '+(n/1e5).toFixed(2)+' Lakh';
+  return 'Rs '+Math.round(n).toLocaleString('en-PK');
+}
+
+function updateBOM(){
+  const q = bomQuantities();
+  const rB=+$('rBrick').value||0, rC=+$('rCement').value||0, rS=+$('rSand').value||0, rT=+$('rTile').value||0;
+  const aB=q.bricks*rB, aC=q.cementBags*rC, aS=q.sandCft*rS, aT=q.tilesSqft*rT;
+  $('qWall').textContent = q.wallFt.toFixed(1)+' ft';
+  $('qVol').textContent  = q.wallVol.toFixed(0)+' cft';
+  $('qArea').textContent = q.tilesSqft.toLocaleString('en-PK')+' sqft';
+  $('mBricks').textContent = q.bricks.toLocaleString('en-PK')+' pcs';
+  $('mCement').textContent = q.cementBags+' bags';
+  $('mSand').textContent   = q.sandCft.toLocaleString('en-PK')+' cft';
+  $('mTiles').textContent  = q.tilesSqft.toLocaleString('en-PK')+' sqft';
+  $('aBricks').textContent = pkr(aB);
+  $('aCement').textContent = pkr(aC);
+  $('aSand').textContent   = pkr(aS);
+  $('aTiles').textContent  = pkr(aT);
+  $('grandTotal').textContent = pkr(aB+aC+aS+aT);
+}
+['rBrick','rCement','rSand','rTile'].forEach(id=>$(id).addEventListener('input', updateBOM));
+$('btnBom').addEventListener('click', ()=>{ updateBOM(); $('bomModal').classList.add('open'); });
+$('bomClose').addEventListener('click', ()=> $('bomModal').classList.remove('open'));
+$('bomModal').addEventListener('click', e=>{ if(e.target.id==='bomModal') $('bomModal').classList.remove('open'); });
+
+/* keep BOM live: any canvas change (syncStats) or area change refreshes it */
+const _syncStats = syncStats;
+syncStats = function(){ _syncStats(); updateBOM(); };
+const _setActiveArea5 = setActiveArea;
+setActiveArea = function(sqft, src){ _setActiveArea5(sqft, src); updateBOM(); };
+
+/* ============================================================
+   PART 5 · §2 — ROLE-BASED COLLABORATION (mock)
+   ============================================================ */
+const ROLE_COLORS = {
+  'Admin/Owner':'#f0b444', 'Lead Architect':'#5aa2ff',
+  'Structural Engineer':'#4ade80', 'Client':'#c084fc'
+};
+const collab = {
+  role:'Admin/Owner',
+  approvals:{},                                  // role → true
+  comments:[
+    {role:'Lead Architect', text:'Front elevation revised as per authority setback lines — canvas layer v2 attached.', t:Date.now()-86400000*1, approval:false},
+    {role:'Client', text:'Kitchen thora bara chahiye — please 12×14 kar dein.', t:Date.now()-3600000*5, approval:false}
+  ]
+};
+
+function fmtTs(t){
+  const d=new Date(t);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' · '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+function renderComments(){
+  $('cmList').innerHTML = collab.comments.map(c=>{
+    const col=ROLE_COLORS[c.role];
+    return `<div class="cm ${c.approval?'approval':''}">
+      <div class="cm-top">
+        <span class="chip" style="background:${col}22;color:${col};border:1px solid ${col}55">${c.role}</span>
+        <span class="ts">${fmtTs(c.t)}</span>
+      </div>
+      <div class="tx">${c.text}</div>
+    </div>`;
+  }).join('');
+  $('cmCount').textContent = collab.comments.length;
+  const n=Object.keys(collab.approvals).length;
+  $('apprFill').style.width = (n/4*100)+'%';
+  $('apprLbl').innerHTML = n>=4
+    ? '<b>All 4 roles signed off ✓</b> — municipality submission pack ready (~60% faster approval workflow)'
+    : n+' / 4 roles signed off — full sign-off simulates a <b>~60% speedup</b> in municipality approvals';
+  $('cmList').scrollTop = $('cmList').scrollHeight;
+}
+$('roleSel').addEventListener('change', e=>{
+  collab.role=e.target.value;
+  $('roleDot').style.background = ROLE_COLORS[collab.role];
+  toast('Now acting as: '+collab.role);
+});
+$('btnComments').addEventListener('click', ()=>{ $('cpanel').classList.toggle('open'); renderComments(); });
+$('cpClose').addEventListener('click', ()=> $('cpanel').classList.remove('open'));
+$('cmAdd').addEventListener('click', ()=>{
+  const tx=$('cmText').value.trim(); if(!tx) return;
+  collab.comments.push({role:collab.role, text:tx, t:Date.now(), approval:false});
+  $('cmText').value=''; renderComments();
+});
+$('cmApprove').addEventListener('click', ()=>{
+  collab.approvals[collab.role]=true;
+  collab.comments.push({role:collab.role, text:'✓ Approved this revision — cleared for the next stage.', t:Date.now(), approval:true});
+  renderComments();
+});
+
+/* ============================================================
+   PART 5 · §3 — EXPORT ENGINE (unified project JSON)
+   Ties all five parts together for cloud sync / re-import.
+   ============================================================ */
+function buildExport(){
+  const q=bomQuantities();
+  const specs = regState.authority!=='none'
+    ? SETBACK_RULES[regState.authority](plotMarlas(), plotGaz()).map(s=>({edge:s.edge, feet:s.ft, label:s.label}))
+    : [];
+  return {
+    meta:{ app:'Plot Planner Pro', version:'5.0', exported:new Date().toISOString(), unit:state.unit, scale:'1:'+state.scale,
+      developedBy: BRAND.developer, agency: BRAND.agency, website: BRAND.website },
+    part1_canvas:{
+      lines: state.lines.map(l=>({a:l.a, b:l.b, lengthFt:+ (dist(l.a,l.b)/pxPerUnit()*(state.unit==='m'?FT_PER_M:1)).toFixed(2) })),
+      polygons: state.polys.map(p=>({points:p.pts, areaPx:p.area})),
+      utilityPins: survey.pins
+    },
+    part2_area:{
+      sides:{ A:$('eA').value, B:$('eB').value, C:$('eC').value, D:$('eD').value, diagonal:$('eE').value },
+      totalSqft:+(activeArea.sqft||0).toFixed(1), source:activeArea.src,
+      marlaStandard:+$('marlaStd').value, marlas:+plotMarlas().toFixed(2),
+      kanals:+(plotMarlas()/20).toFixed(3), gaz:+plotGaz().toFixed(1)
+    },
+    part3_regulatory:{ authority:regState.authority, basementPlanned:regState.basement, setbacksApplied:specs,
+      survey:{ roadWidthFt:survey.roadW, adjacent:{front:survey.front,left:survey.left,right:survey.right,rear:survey.rear}, soil:survey.soil } },
+    part4_simulation:{ facing:sim.facing, season:sim.season, timeOfDay:fmtTime(sim.time),
+      sunElevationDeg:+sunElevation().toFixed(1), shadowFactor:+shadowFactor().toFixed(2) },
+    part5_costSheet:{
+      quantities:q,
+      rates:{ brick:+$('rBrick').value, cementBag:+$('rCement').value, sandCft:+$('rSand').value, tileSqft:+$('rTile').value },
+      totalPKR: Math.round(q.bricks*$('rBrick').value + q.cementBags*$('rCement').value + q.sandCft*$('rSand').value + q.tilesSqft*$('rTile').value)
+    },
+    collaboration:{ activeRole:collab.role, approvals:collab.approvals, comments:collab.comments }
+  };
+}
+$('btnExport').addEventListener('click', ()=>{
+  const blob=new Blob([JSON.stringify(buildExport(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='plot-planner-project.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('⬇ Project exported — plot-planner-project.json');
+});
+
+/* init */
+resize();
+syncStats();
+renderConverter();
+updateRuleNote();
+seedWind();
+renderRecs();
+renderComments();
+updateBOM();
+/* sync default context selections into the four dropdowns + corner note */
+if($('svFront'))$('svFront').value=survey.front;
+$('svLeft').value=survey.left; $('svRight').value=survey.right; $('svRear').value=survey.rear;
+updateCornerNote();
+refreshGenBtn();
+</script>
+</body>
+</html>
