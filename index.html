@@ -120,6 +120,7 @@ canvas{display:block;width:100%;height:100%;cursor:crosshair}
 }
 .card h3{font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
 .seg{display:flex;gap:6px}
+.ctl-lbl{font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 3px;font-weight:600}
 .seg button{
   flex:1;padding:9px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:12.5px;
   background:#0b1420;border:1px solid var(--line);color:var(--muted);transition:.15s;
@@ -818,18 +819,29 @@ input[type=range]::-moz-range-thumb{
       <div class="acc" data-open="1">
         <div class="acc-head"><span>📐 Scale & Units · اسکیل</span><span class="acc-chev">▾</span></div>
         <div class="acc-body">
-          <div style="display:flex;gap:8px">
-            <div class="seg" id="segScale" style="flex:1"><button data-v="100" class="on">1:100</button><button data-v="50">1:50</button><button data-v="200">1:200</button></div>
-            <div class="seg" id="segUnit" style="flex:1"><button data-v="ft" class="on">Feet</button><button data-v="m">Meters</button></div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-            <div class="seg" id="segLineW" style="flex:1"><button data-v="1">0.18mm</button><button data-v="2" class="on">0.35mm</button><button data-v="3.5">0.70mm</button></div>
-            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Color
-              <input type="color" id="lineColor" value="#5aa2ff" style="width:30px;height:24px;border:1px solid var(--line);border-radius:5px;background:transparent;cursor:pointer;padding:0"></label>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-            <span style="font-size:11px;color:var(--muted)">Grid</span>
-            <div class="seg" id="segGrid" style="flex:1"><button data-v="2">Coarse</button><button data-v="5" class="on">Normal</button><button data-v="10">Fine</button></div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div>
+              <div class="ctl-lbl">Scale · اسکیل</div>
+              <div class="seg" id="segScale"><button data-v="100" class="on">1:100</button><button data-v="50">1:50</button><button data-v="200">1:200</button></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:flex-end">
+              <div style="flex:1">
+                <div class="ctl-lbl">Unit</div>
+                <div class="seg" id="segUnit"><button data-v="ft" class="on">Feet</button><button data-v="m">Meters</button></div>
+              </div>
+              <div>
+                <div class="ctl-lbl">Line Color</div>
+                <input type="color" id="lineColor" value="#5aa2ff" style="width:42px;height:28px;border:1px solid var(--line);border-radius:6px;background:transparent;cursor:pointer;padding:0">
+              </div>
+            </div>
+            <div>
+              <div class="ctl-lbl">Line Weight · موٹائی (mm)</div>
+              <div class="seg" id="segLineW"><button data-v="1">0.18</button><button data-v="2" class="on">0.35</button><button data-v="3.5">0.70</button></div>
+            </div>
+            <div>
+              <div class="ctl-lbl">Grid Density</div>
+              <div class="seg" id="segGrid"><button data-v="2">Coarse</button><button data-v="5" class="on">Normal</button><button data-v="10">Fine</button></div>
+            </div>
           </div>
         </div>
       </div>
