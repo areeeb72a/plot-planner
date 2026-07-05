@@ -790,6 +790,7 @@ input[type=range]::-moz-range-thumb{
       <div class="v3d-bar">
         <span class="v3d-title">🧊 3D View · تین جہتی منظر</span>
         <div class="v3d-ctrls">
+          <span class="v3d-floors" id="v3dFloors" style="display:none;gap:4px"></span>
           <button class="v3d-btn" id="v3dOrbit" title="Rotate / Zoom">🔄 Orbit</button>
           <button class="v3d-btn" id="v3dWalk" title="Walk inside">🚶 Walk</button>
           <button class="v3d-btn" id="v3dSun" title="Use Simulator sun">☀ Sun</button>
@@ -875,6 +876,10 @@ input[type=range]::-moz-range-thumb{
           <div class="floor-seg" id="floorSeg">
             <button data-v="1" class="on">Single</button><button data-v="2">Double</button><button data-v="3">Triple</button>
           </div>
+          <label style="display:flex;align-items:center;gap:8px;margin:10px 2px 4px;cursor:pointer;font-size:12px;color:var(--text)">
+            <input type="checkbox" id="corrToggle" checked>
+            <span>🚪 Central Corridor · طرقہ تقسیم <span style="color:var(--muted);font-size:10.5px">(rooms ko passage se joro)</span></span>
+          </label>
           <button class="btn-gen" id="btnGen" disabled>⚡ Generate Floor Plan · نقشہ بنائیں</button>
         </div>
       </div>
@@ -1539,9 +1544,8 @@ $('marlaStd').addEventListener('change', renderConverter);
 $('regionSeg')?.querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
   $('regionSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); pkRegion=b.dataset.v;
-  document.querySelector('.card').classList; // noop
   const card = $('pkGaz').closest('.acc')||$('pkGaz').parentElement;
-  card.classList.toggle('karachi-mode', pkRegion==='karachi');
+  if(card) card.classList.toggle('karachi-mode', pkRegion==='karachi');
   $('marlaStdWrap').style.display = pkRegion==='punjab' ? 'block' : 'none';
   renderConverter();
   toast(pkRegion==='karachi' ? '🌆 Karachi mode — sab kuch Gaz mein' : '🏛 Punjab mode — Marla/Kanal');
@@ -2170,7 +2174,7 @@ const V3D = {
   scene:null, camera:null, renderer:null, raf:null,
   yaw:0.6, pitch:0.5, radius:0, target:null,
   walk:{x:0,z:0,ang:0,keys:{}}, dragging:false, lastX:0, lastY:0,
-  sunLight:null, hemi:null, group:null, ppf:1
+  sunLight:null, hemi:null, group:null, ppf:1, floorView:0
 };
 const WALL_H_FT = 10;      // matches BOM standard height
 
@@ -2179,6 +2183,33 @@ function three(){ return window.THREE; }
 /* ---- convert a 2D pixel point to 3D world (feet), centered ---- */
 function to3D(px, py, ppf, cx, cy){
   return [ (px-cx)/ppf, (py-cy)/ppf ];   // returns [worldX, worldZ] in feet
+}
+/* simple extruded furniture blocks per room (feet) */
+function add3DFurniture(T,g,r,OX,OZ,WH){
+  if(r.w<4||r.h<4) return;
+  const cx=r.x+r.w/2-OX, cz=r.y+r.h/2-OZ;
+  const box=(w,h,d,y,color,ox=0,oz=0)=>{
+    const m=new T.Mesh(new T.BoxGeometry(w,h,d), new T.MeshStandardMaterial({color,roughness:.7}));
+    m.position.set(cx+ox,y,cz+oz); m.castShadow=true; m.receiveShadow=true; g.add(m);
+  };
+  if(r.id==='bed'){
+    box(Math.min(r.w*0.62,7.5),1.7,Math.min(r.h*0.72,7),1.0,0x9db4d4);
+    box(Math.min(r.w*0.55,6),0.5,1.2,1.9,0xcdd9ec,0,-Math.min(r.h*0.28,2.4)); // pillows
+  } else if(r.id==='lounge'||r.id==='draw'){
+    box(Math.min(r.w*0.72,10),1.6,2.2,1.0,0x7c8fb0,0,r.h*0.26);               // sofa
+    box(2.6,1.0,1.6,0.7,0x8a6a4a,0,-r.h*0.02);                                 // table
+    if(r.id==='draw'){ box(4.2,1.2,2.6,0.9,0x6a7690,0,-r.h*0.3); }            // dining
+  } else if(r.id==='kitchen'){
+    box(r.w*0.82,2.4,1.5,1.4,0xb0846a,0,-r.h*0.34);                           // counter
+  } else if(r.id==='bath'){
+    box(1.8,1.6,2.4,1.0,0xcdd9ec,-r.w*0.24,r.h*0.18);                          // fixtures
+  } else if(r.id==='stair'){
+    const n=5; for(let i=0;i<n;i++) box(Math.min(r.w*0.6,4),1.1*(i+1),1.3,0.55*(i+1),0xc0c8d6,0,-r.h*0.3+i*1.3);
+  } else if(r.id==='porch'){
+    box(Math.min(r.w*0.5,7),2.2,Math.min(r.h*0.5,13),1.4,0x5a6a85);            // car mass
+  } else if(r.id==='store'||r.id==='laundry'){
+    box(r.w*0.7,2.0,1.2,1.2,0x6a7488,0,-r.h*0.3);                              // shelving
+  }
 }
 
 function buildScene(){
@@ -2271,9 +2302,9 @@ function populateModel(){
     g.add(line);
   }
 
-  /* WALLS from drawn lines */
+  /* WALLS from drawn lines (only when no generated floor plan) */
   const wallMat = new T.MeshStandardMaterial({color:'#c9d3e2', roughness:.85});
-  state.lines.forEach(l=>{
+  if(!floorPlan.floors) state.lines.forEach(l=>{
     const [x1,z1]=to3D(l.a[0],l.a[1],ppf,cx,cy);
     const [x2,z2]=to3D(l.b[0],l.b[1],ppf,cx,cy);
     const len = Math.hypot(x2-x1, z2-z1);
@@ -2285,39 +2316,57 @@ function populateModel(){
     g.add(wall);
   });
 
-  /* FLOOR PLAN ROOMS → 3D colored blocks + partition walls */
-  if(floorPlan.floors){
-    const ROOM3D_COL={open:0x4ade80,porch:0xf0b444,bed:0x5aa2ff,bath:0x7dd3fc,kitchen:0xfb923c,draw:0xc084fc,lounge:0x6d9be8,store:0x94a3b8,laundry:0x7dd3fc,stair:0xf0b444,terrace:0x4ade80};
+  /* FLOOR PLAN → 3D: render the SELECTED floor with real walls + furniture */
+  if(floorPlan.floors && floorPlan.floors.length){
+    const ROOM3D_COL={open:0x2f7d4f,porch:0x8a6a2a,bed:0x3f5f8f,bath:0x4a86a0,kitchen:0xa5622f,draw:0x6d4a8f,lounge:0x466088,store:0x5a6478,laundry:0x4a7080,stair:0x8a7030,terrace:0x2f7d4f,corridor:0x3a4356};
     const A=engInput('eA'),B=engInput('eB'),C=engInput('eC'),D=engInput('eD');
     let fpW,fpH;
     if(A&&B&&C&&D){fpW=(A+C)/2;fpH=(B+D)/2;} else {const s=Math.sqrt(activeArea.sqft||900);fpW=s;fpH=s;}
-    floorPlan.floors.forEach((fl,fi)=>{
-      const yBase = fi * WALL_H_FT;
-      fl.placed.forEach(r=>{
-        /* room floor slab (thin colored box) */
-        const col=ROOM3D_COL[r.id]||0x5aa2ff;
-        const rm=new T.Mesh(new T.BoxGeometry(r.w,0.3,r.h),
-          new T.MeshStandardMaterial({color:col, transparent:true, opacity:0.45, roughness:.9}));
-        rm.position.set(r.x+r.w/2-fpW/2, yBase+0.2, r.y+r.h/2-fpH/2);
-        rm.receiveShadow=true; g.add(rm);
-        /* thin partition walls around each room */
-        const partMat=new T.MeshStandardMaterial({color:0xb0bfd4,roughness:.9});
-        const edges=[[r.x,r.y,r.x+r.w,r.y],[r.x+r.w,r.y,r.x+r.w,r.y+r.h],[r.x+r.w,r.y+r.h,r.x,r.y+r.h],[r.x,r.y+r.h,r.x,r.y]];
-        edges.forEach(([ax,ay,bx,by])=>{
-          const wx=bx-ax,wy=by-ay,wl=Math.hypot(wx,wy);
-          if(wl<1)return;
-          const pw=new T.Mesh(new T.BoxGeometry(wl,WALL_H_FT,0.4),partMat);
-          pw.position.set((ax+bx)/2-fpW/2, yBase+WALL_H_FT/2, (ay+by)/2-fpH/2);
-          pw.rotation.y=-Math.atan2(wy,wx);
-          pw.castShadow=true; pw.receiveShadow=true; g.add(pw);
-        });
-      });
-      /* floor slab between stories */
-      if(fi>0){
-        const slab=new T.Mesh(new T.BoxGeometry(fpW,0.5,fpH),
-          new T.MeshStandardMaterial({color:0x2a3346,roughness:1}));
-        slab.position.set(0,yBase,0); slab.receiveShadow=true; g.add(slab);
+    const fv=Math.min(V3D.floorView||0, floorPlan.floors.length-1);
+    const fl=floorPlan.floors[fv];
+    const OX=fpW/2, OZ=fpH/2, WH=WALL_H_FT, eps=0.06;
+
+    /* solid base slab for this floor */
+    const base=new T.Mesh(new T.BoxGeometry(fpW,0.5,fpH),
+      new T.MeshStandardMaterial({color:0x161f33, roughness:1}));
+    base.position.set(0,-0.25,0); base.receiveShadow=true; g.add(base);
+
+    /* per-room coloured floor + furniture */
+    fl.placed.forEach(r=>{
+      const col=ROOM3D_COL[r.id]||0x3f5f8f;
+      const slab=new T.Mesh(new T.BoxGeometry(Math.max(0.5,r.w-0.3),0.4,Math.max(0.5,r.h-0.3)),
+        new T.MeshStandardMaterial({color:col, roughness:.85}));
+      slab.position.set(r.x+r.w/2-OX,0.2,r.y+r.h/2-OZ);
+      slab.receiveShadow=true; g.add(slab);
+      add3DFurniture(T,g,r,OX,OZ,WH);
+    });
+
+    /* ---- interior partition walls (deduplicated, drawn once) ---- */
+    const seen=new Set(), partMat=new T.MeshStandardMaterial({color:0xcdd6e4,roughness:.85});
+    const onBoundary=(p1,p2)=>(Math.abs(p1[0])<eps&&Math.abs(p2[0])<eps)||(Math.abs(p1[0]-fpW)<eps&&Math.abs(p2[0]-fpW)<eps)
+      ||(Math.abs(p1[1])<eps&&Math.abs(p2[1])<eps)||(Math.abs(p1[1]-fpH)<eps&&Math.abs(p2[1]-fpH)<eps);
+    fl.placed.forEach(r=>{
+      const c=[[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]];
+      for(let i=0;i<4;i++){
+        const p1=c[i], p2=c[(i+1)%4];
+        const a=p1[0].toFixed(2)+','+p1[1].toFixed(2), b=p2[0].toFixed(2)+','+p2[1].toFixed(2);
+        const k=a<b?a+'|'+b:b+'|'+a;
+        if(seen.has(k)) continue; seen.add(k);
+        if(onBoundary(p1,p2)) continue;
+        const ax=p1[0]-OX,az=p1[1]-OZ,bx=p2[0]-OX,bz=p2[1]-OZ, len=Math.hypot(bx-ax,bz-az);
+        if(len<0.6) continue;
+        const w=new T.Mesh(new T.BoxGeometry(len,WH*0.92,0.42),partMat);
+        w.position.set((ax+bx)/2,WH*0.46,(az+bz)/2); w.rotation.y=-Math.atan2(bz-az,bx-ax);
+        w.castShadow=true; w.receiveShadow=true; g.add(w);
       }
+    });
+    /* ---- thick outer boundary walls (full height) ---- */
+    const OWt=0.75, wallMatO=new T.MeshStandardMaterial({color:0xeaeff7,roughness:.8});
+    [[0,0,fpW,0],[fpW,0,fpW,fpH],[fpW,fpH,0,fpH],[0,fpH,0,0]].forEach(([x1,y1,x2,y2])=>{
+      const ax=x1-OX,az=y1-OZ,bx=x2-OX,bz=y2-OZ, len=Math.hypot(bx-ax,bz-az);
+      const w=new T.Mesh(new T.BoxGeometry(len+OWt,WH,OWt),wallMatO);
+      w.position.set((ax+bx)/2,WH/2,(az+bz)/2); w.rotation.y=-Math.atan2(bz-az,bx-ax);
+      w.castShadow=true; w.receiveShadow=true; g.add(w);
     });
   }
 
@@ -2478,23 +2527,46 @@ function open3D(){
     if(!window._threeWaited){
       window._threeWaited = true;
       toast('🧊 3D engine load ho raha hai...');
-      window.addEventListener('three-ready', ()=>{ if($('view3d').classList.contains('open')) { const e=$('v3dErr'); if(e)e.remove(); open3D(); } }, {once:true});
+      window.addEventListener('three-ready', ()=>{ clearTimeout(window._threeTimer); if($('view3d').classList.contains('open')) { const e=$('v3dErr'); if(e)e.remove(); open3D(); } }, {once:true});
     }
     $('view3d').classList.add('open');
     if(!$('v3dErr')) $('view3d').insertAdjacentHTML('beforeend',
       '<div id="v3dErr" style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#8fa3bd;padding:30px">'+
       '<div><div style="font-size:40px">🧊</div><br>3D engine load ho raha hai...<br>'+
-      '<span style="font-size:11px">Pehli dafa internet zaroori hai. Agar na khule to page refresh karein.</span><br>'+
+      '<span style="font-size:11px">Pehli dafa internet zaroori hai. Preview mein 3D na chale to file <b>download</b> kar ke browser mein kholein.</span><br>'+
       '<button class="v3d-btn" onclick="close3D()" style="margin-top:14px">✕ Wapas 2D</button></div></div>');
+    /* safeguard: if engine never loads (offline / sandboxed preview), auto-return to 2D so the plan never disappears */
+    clearTimeout(window._threeTimer);
+    window._threeTimer = setTimeout(()=>{
+      if(!three() && $('view3d').classList.contains('open')){
+        close3D();
+        toast('⚠ 3D ke liye internet chahiye — file download kar ke browser mein 3D chalega');
+      }
+    }, 6000);
     return;
   }
   const err=$('v3dErr'); if(err) err.remove();
   $('view3d').classList.add('open');
   V3D.on = true;
+  V3D.floorView = Math.min(floorPlan.view||0, (floorPlan.count||1)-1);
   buildScene();
+  buildV3DFloors();
   if(!V3D.raf) renderLoop();
   $('btn3D').classList.add('on');
   toast('🧊 3D View — drag to rotate, scroll to zoom');
+}
+/* floor-switch buttons inside the 3D bar (multi-story only) */
+function buildV3DFloors(){
+  const el=$('v3dFloors'); if(!el) return;
+  if(!floorPlan.floors || floorPlan.count<2){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='inline-flex'; el.innerHTML='';
+  const names=['Ground','1st','2nd'];
+  for(let i=0;i<floorPlan.count;i++){
+    const b=document.createElement('button'); b.className='v3d-btn'; b.textContent=names[i];
+    if(i===V3D.floorView){ b.style.background='var(--amber)'; b.style.color='#0d1520'; b.style.borderColor='var(--amber)'; }
+    b.onclick=()=>{ V3D.floorView=i; buildV3DFloors(); if(V3D.on){ populateModel(); applySun(); frameCamera(); } };
+    el.appendChild(b);
+  }
 }
 function close3D(){
   V3D.on=false; $('view3d').classList.remove('open'); $('btn3D').classList.remove('on');
@@ -2849,7 +2921,7 @@ const REQS = [
   {id:'open',   en:'Open Space / Lawn',   ur:'صحن / لان',          type:'opt', opts:['Front','Back','Side'], def:'Front'}
 ];
 const reqState = {};
-const floorPlan = { floors:null, view:0, count:1 };
+const floorPlan = { floors:null, view:0, count:1, corridor:true };
 const FLOOR_NAMES=[['Ground','گراؤنڈ'],['1st Floor','پہلی منزل'],['2nd Floor','دوسری منزل']];
 
 (function buildReqRows(){
@@ -2984,6 +3056,30 @@ function packRooms(x,y,w,h,list){
   })(x,y,w,h,list);
   return out;
 }
+/* reserve a central circulation corridor and pack rooms on both sides */
+function packWithCorridor(x,y,w,h,rooms){
+  if(!floorPlan.corridor || rooms.length<4 || Math.min(w,h)<12) return packRooms(x,y,w,h,rooms);
+  const out=[];
+  const tot=rooms.reduce((s,i)=>s+i.w,0); let acc=0,k=0;
+  while(k<rooms.length-1 && acc+rooms[k].w<tot/2){ acc+=rooms[k].w; k++; }
+  k=Math.max(1,Math.min(rooms.length-1,k));
+  const g1=rooms.slice(0,k), g2=rooms.slice(k);
+  const f=g1.reduce((s,i)=>s+i.w,0)/tot;
+  if(w>=h){ /* horizontal corridor, rooms above + below */
+    const corrT=Math.max(3,Math.min(4,h*0.13)), zoneH=h-corrT;
+    const topH=Math.max(6,zoneH*f), botH=zoneH-topH;
+    out.push(...packRooms(x,y,w,topH,g1));
+    out.push(room('corridor','Corridor طرقہ',x,y+topH,w,corrT));
+    out.push(...packRooms(x,y+topH+corrT,w,botH,g2));
+  } else { /* vertical corridor, rooms left + right */
+    const corrT=Math.max(3,Math.min(4,w*0.13)), zoneW=w-corrT;
+    const leftW=Math.max(6,zoneW*f), rightW=zoneW-leftW;
+    out.push(...packRooms(x,y,leftW,h,g1));
+    out.push(room('corridor','Corridor طرقہ',x+leftW,y,corrT,h));
+    out.push(...packRooms(x+leftW+corrT,y,rightW,h,g2));
+  }
+  return out;
+}
 function genFloorPlan(){
   if(!(activeArea.sqft>0)){ toast('Pehle plot measurements bharein'); return; }
   /* derive a working rectangle from the plot area + math-engine sides */
@@ -3006,9 +3102,9 @@ function genFloorPlan(){
       placed.push(room('porch','Porch 🚗',x,y,pw,ph));
       const rooms=roomList(fl); const head=rooms.splice(0,Math.max(1,Math.round(rooms.length*0.3)));
       placed.push(...packRooms(x+pw,y,w-pw,ph,head));
-      placed.push(...packRooms(x,y+ph,w,h-ph,rooms));
+      placed.push(...packWithCorridor(x,y+ph,w,h-ph,rooms));
     } else {
-      placed.push(...packRooms(x,y,w,h,roomList(fl)));
+      placed.push(...packWithCorridor(x,y,w,h,roomList(fl)));
     }
     floors.push({placed,W,H});
   }
@@ -3018,6 +3114,7 @@ function genFloorPlan(){
   toast('🏠 Floor plan ban gaya — '+floorPlan.count+' floor(s)');
 }
 $('btnGen').addEventListener('click', genFloorPlan);
+$('corrToggle')?.addEventListener('change',e=>{ floorPlan.corridor=e.target.checked; if(floorPlan.floors) genFloorPlan(); });
 
 function buildFloorTabs(){
   const el=$('floorTabs'); if(!el) return;
@@ -3032,8 +3129,8 @@ function buildFloorTabs(){
 }
 
 /* room colours */
-const RCOL={open:'rgba(74,222,128,.13)',porch:'rgba(240,180,68,.14)',bed:'rgba(90,162,255,.12)',bath:'rgba(125,211,252,.14)',kitchen:'rgba(251,146,60,.13)',draw:'rgba(192,132,252,.13)',lounge:'rgba(90,162,255,.09)',store:'rgba(148,163,184,.12)',laundry:'rgba(125,211,252,.10)',stair:'rgba(240,180,68,.10)',terrace:'rgba(74,222,128,.10)'};
-const RSTK={open:'#4ade80',porch:'#f0b444',bed:'#5aa2ff',bath:'#7dd3fc',kitchen:'#fb923c',draw:'#c084fc',lounge:'#5aa2ff',store:'#94a3b8',laundry:'#7dd3fc',stair:'#f0b444',terrace:'#4ade80'};
+const RCOL={open:'rgba(74,222,128,.13)',porch:'rgba(240,180,68,.14)',bed:'rgba(90,162,255,.12)',bath:'rgba(125,211,252,.14)',kitchen:'rgba(251,146,60,.13)',draw:'rgba(192,132,252,.13)',lounge:'rgba(90,162,255,.09)',store:'rgba(148,163,184,.12)',laundry:'rgba(125,211,252,.10)',stair:'rgba(240,180,68,.10)',terrace:'rgba(74,222,128,.10)',corridor:'rgba(148,163,184,.07)'};
+const RSTK={open:'#4ade80',porch:'#f0b444',bed:'#5aa2ff',bath:'#7dd3fc',kitchen:'#fb923c',draw:'#c084fc',lounge:'#5aa2ff',store:'#94a3b8',laundry:'#7dd3fc',stair:'#f0b444',terrace:'#4ade80',corridor:'#94a3b8'};
 
 /* ============================================================
    PROFESSIONAL BLUEPRINT RENDERER  (AutoCAD / Sweet Home 3D style)
@@ -3051,7 +3148,7 @@ const RLABEL = {
   bed:['Bedroom','بیڈ روم'], bath:['Bathroom','واش روم'], kitchen:['Kitchen','کچن'],
   draw:['Drawing Room','ڈرائنگ روم'], lounge:['TV Lounge','ٹی وی لاؤنج'], store:['Store','اسٹور'],
   laundry:['Laundry','لانڈری'], stair:['Staircase','سیڑھیاں'], porch:['Car Porch','پورچ'],
-  open:['Lawn / Open','صحن'], terrace:['Terrace','ٹیرس']
+  open:['Lawn / Open','صحن'], terrace:['Terrace','ٹیرس'], corridor:['Corridor','طرقہ تقسیم']
 };
 /* ---- low-level primitives ---- */
 function _head(x,y,ang,s,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,y);
@@ -3188,7 +3285,7 @@ function drawFloorPlan(){
     ctx.strokeStyle='rgba(185,201,234,.55)'; ctx.lineWidth=1; ctx.strokeRect(f.fx-.5,f.fy-.5,f.fw+1,f.fh+1); }});
 
   /* 4) windows on exterior walls (skip open/lawn) */
-  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<=0||f.fh<=0||r.id==='open'||r.id==='terrace') return;
+  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<=0||f.fh<=0||r.id==='open'||r.id==='terrace'||r.id==='corridor') return;
     const segH=Math.min(f.fw*0.5, 4*sc), segV=Math.min(f.fh*0.5, 4*sc);
     if(f.onT && f.fw>44) _window(f.fx+f.fw/2, by0+OW/2, [1,0], OW, segH);
     if(f.onB && f.fw>44) _window(f.fx+f.fw/2, by0+bH-OW/2, [1,0], OW, segH);
@@ -3197,7 +3294,7 @@ function drawFloorPlan(){
   });
 
   /* 5) one door per room on an interior wall (facing plot centre) */
-  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<40||f.fh<30||r.id==='open'||r.id==='porch'||r.id==='terrace') return;
+  fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<40||f.fh<30||r.id==='open'||r.id==='porch'||r.id==='terrace'||r.id==='corridor') return;
     const dl=Math.min(2.6*sc, f.fw*0.5, f.fh*0.5);
     const sides=[];
     if(!f.onB) sides.push({s:'B',x:f.fx+Math.min(dl*0.9,f.fw*0.3),y:f.fy+f.fh,ax:1,ay:0,nx:0,ny:-1,len:f.fw});
@@ -3211,6 +3308,18 @@ function drawFloorPlan(){
 
   /* 6) furniture + labels + per-room dimension line */
   fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<=0||f.fh<=0) return;
+    if(r.id==='corridor'){
+      ctx.save(); ctx.strokeStyle='rgba(148,163,184,.35)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+      ctx.beginPath();
+      if(f.fw>=f.fh){ ctx.moveTo(f.fx+4,f.fy+f.fh/2); ctx.lineTo(f.fx+f.fw-4,f.fy+f.fh/2); }
+      else{ ctx.moveTo(f.fx+f.fw/2,f.fy+4); ctx.lineTo(f.fx+f.fw/2,f.fy+f.fh-4); }
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='#94a3b8'; ctx.font='600 9.5px Space Grotesk'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const cx=f.fx+f.fw/2, cy=f.fy+f.fh/2;
+      if(f.fh>f.fw){ ctx.translate(cx,cy); ctx.rotate(-Math.PI/2); ctx.fillText('Corridor · طرقہ تقسیم',0,0,f.fh-12); }
+      else ctx.fillText('Corridor · طرقہ تقسیم',cx,cy,f.fw-12);
+      ctx.restore(); ctx.textBaseline='alphabetic'; return;
+    }
     drawFurniture(r,f.fx,f.fy,f.fw,f.fh);
     const lab=RLABEL[r.id]||[r.nm,''];
     let en=lab[0]; if(r.id==='bed'){ const n=(r.nm.match(/(\d+)/)||[])[1]; en=n==='1'?'Master Bedroom':'Bedroom '+(n||''); }
@@ -3220,6 +3329,13 @@ function drawFloorPlan(){
       ctx.fillText(en, f.fx+f.fw/2, f.fy+f.fh/2-3, f.fw-8);
       if(lab[1]){ ctx.font='500 10px Noto Nastaliq Urdu, Space Grotesk'; ctx.fillStyle=BP.sub;
         ctx.fillText(lab[1], f.fx+f.fw/2, f.fy+f.fh/2+12, f.fw-8); }
+      /* per-room area — meters + sq ft (skip lawn/porch) */
+      if(f.fh>58 && r.id!=='open' && r.id!=='porch' && r.id!=='terrace'){
+        const a_sqft=r.w*r.h, a_m2=a_sqft/10.7639;
+        ctx.font='500 9px Space Grotesk'; ctx.fillStyle='#8398bb';
+        ctx.fillText((r.w/FT_PER_M).toFixed(1)+'m × '+(r.h/FT_PER_M).toFixed(1)+'m · '+a_m2.toFixed(1)+' m²',
+          f.fx+f.fw/2, f.fy+f.fh/2+26, f.fw-8);
+      }
       /* dimension line with arrows hugging the top-inner edge */
       const dimTxt = r.size ? r.size : (r.w.toFixed(0)+"'×"+r.h.toFixed(0)+"'");
       if(f.fw>60&&f.fh>50) _dimH(f.fx+4, f.fx+f.fw-4, f.fy+11, dimTxt);
@@ -3233,8 +3349,13 @@ function drawFloorPlan(){
   _extLine(bx0, by0, bx0-dOff-ext, by0); _extLine(bx0, by0+bH, bx0-dOff-ext, by0+bH);
   _dimV(by0, by0+bH, bx0-dOff, fl.H.toFixed(1)+" ft");
 
-  /* 8) titles */
-  ctx.textAlign='center';
+  /* 8) titles + North arrow + scale bar */
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  /* total-area title */
+  const tSqft=fl.W*fl.H, tM2=tSqft/10.7639;
+  ctx.font='700 13px Space Grotesk'; ctx.fillStyle='#eef4fc';
+  ctx.fillText('AREA: '+tM2.toFixed(1)+' m² · '+Math.round(tSqft)+' ft²   ('+(fl.W/FT_PER_M).toFixed(2)+'m × '+(fl.H/FT_PER_M).toFixed(2)+'m)',
+    bx0+bW/2, by0-dOff-42);
   ctx.font='600 12px Space Grotesk'; ctx.fillStyle='#f0b444';
   ctx.fillText('◄ FRONT — سامنے (Road side) ►', bx0+bW/2, by0-dOff-22);
   const names=['GROUND FLOOR — گراؤنڈ فلور','FIRST FLOOR — پہلی منزل','SECOND FLOOR — دوسری منزل'];
@@ -3242,6 +3363,40 @@ function drawFloorPlan(){
   ctx.fillText(names[Math.min(floorPlan.view,2)], bx0+bW/2, by0+bH+30);
   ctx.font='500 10px Space Grotesk'; ctx.fillStyle='#5d7291';
   ctx.fillText('🔲 9" outer walls · 4.5" partitions · doors + windows + furniture · drag rooms to reposition', bx0+bW/2, by0+bH+48);
+
+  /* North arrow (top-left) */
+  const nX=bx0-78, nY=by0+36;
+  ctx.strokeStyle='#cdd8ec'; ctx.lineWidth=1.3;
+  ctx.beginPath(); ctx.arc(nX,nY,15,0,7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(nX,nY+10); ctx.lineTo(nX,nY-10); ctx.stroke();
+  _head(nX,nY-10,-Math.PI/2,7,'#cdd8ec');
+  ctx.font='700 11px Space Grotesk'; ctx.fillStyle='#eef4fc'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('N', nX, nY-23); ctx.textBaseline='alphabetic';
+
+  /* metric scale bar (bottom-left) */
+  let mUnit=5, barPx=mUnit*FT_PER_M*sc;
+  if(barPx>bW*0.6){ mUnit=2; barPx=mUnit*FT_PER_M*sc; }
+  if(barPx>bW*0.6){ mUnit=1; barPx=mUnit*FT_PER_M*sc; }
+  const sbx=bx0, sby=by0+bH+62, seg=barPx/mUnit;
+  ctx.lineWidth=1; ctx.strokeStyle='#cdd8ec';
+  for(let i=0;i<mUnit;i++){ ctx.fillStyle=(i%2===0)?'#cdd8ec':'#0e1622';
+    ctx.fillRect(sbx+i*seg,sby,seg,6); ctx.strokeRect(sbx+i*seg,sby,seg,6); }
+  ctx.strokeRect(sbx,sby,barPx,6);
+  ctx.font='500 9px Space Grotesk'; ctx.fillStyle='#8398bb'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('0',sbx-1,sby+8); ctx.fillText(mUnit+' m',sbx+barPx-6,sby+8);
+
+  /* façade orientation labels — all four sides */
+  ctx.fillStyle='#7c93b8';
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.font='600 11px Space Grotesk';
+  ctx.fillText('▲ REAR — پچھلی جانب ▲', bx0+bW/2, by0+bH+15);        // bottom
+  ctx.font='600 10px Space Grotesk';
+  ctx.save(); ctx.translate(bx0-56, by0+bH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('◄ LEFT SIDE — بائیں جانب ►', 0, 0); ctx.restore();      // left
+  ctx.save(); ctx.translate(bx0+bW+16, by0+bH/2); ctx.rotate(Math.PI/2);
+  ctx.fillText('◄ RIGHT SIDE — دائیں جانب ►', 0, 0); ctx.restore();     // right
+
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
 }
 
 /* ---- view switching (board vs floor plan) ---- */
@@ -3348,9 +3503,16 @@ const SLIDES = [
    ]},
   {icon:'🏠', badge:'Feature', title:'Requirements + <span>Floor Plan</span>', urdu:'ضروریات اور نقشہ',
    points:[
-     ['✅','Bedrooms, Bath, Kitchen, Lounge... tick karein, tadaad set karein.'],
-     ['🏢','Har item ke saath <b>Floor selector (G/1st/2nd)</b> — batayein kis floor par kya chahiye.'],
-     ['🖱️','Floor plan ban jaye to <b>rooms drag</b> kar ke jagah badal sakte hain.']
+     ['✅','Bedrooms, Bath, Kitchen, Lounge... tick karein.'],
+     ['🏢','Item ke saamne <b>▾ tap</b> karein → <b>per-floor tadaad</b> (Ground/1st/2nd — jitni manzilein utne counter) aur <b>custom room size (W×H)</b> set karein.'],
+     ['🖱️','Floors chunein → <b>Generate</b>. Phir <b>rooms drag</b> kar ke jagah badal sakte hain.']
+   ]},
+  {icon:'📐', badge:'New', title:'Professional <span>Blueprint</span>', urdu:'پروفیشنل بلیو پرنٹ',
+   points:[
+     ['🧱','<b>9" outer walls + 4.5" partitions</b> — asli architectural line-work (poché), CAD jaisa.'],
+     ['🚪','<b>Dimension lines</b> (arrows), <b>doors</b> (swing arc), <b>windows</b>, aur <b>furniture</b> (bed, sofa, kitchen, WC, stairs, car...) khud draw hote hain.'],
+     ['🧭','<b>North arrow, scale bar, total-area title, per-room area (m²)</b> aur chaaron <b>façade labels</b> — reference naqshe jaisa saaf blueprint.'],
+     ['🚪','<b>Central Corridor (طرقہ تقسیم)</b> on karein to rooms ek passage ke dono taraf arrange hote hain — bilkul asli ghar jaisa flow.']
    ]},
   {icon:'📊', badge:'Feature', title:'BOM &amp; <span>Cost</span>', urdu:'میٹریل اور لاگت',
    points:[
@@ -3358,11 +3520,11 @@ const SLIDES = [
      ['💰','Rates apni market ke hisaab se badlein — total foran update.'],
      ['🖨','Branded report print / PDF ban jati hai.']
    ]},
-  {icon:'🧊', badge:'Feature', title:'3D <span>View</span>', urdu:'تین جہتی منظر',
+  {icon:'🧊', badge:'Updated', title:'3D <span>View</span>', urdu:'تین جہتی منظر',
    points:[
-     ['🔄','Aapki 2D walls 10ft oonchi 3D deewarein ban jati hain.'],
-     ['🚶','Orbit se ghumao ya Walk se andar chalo.'],
-     ['☀️','Simulator ka sooraj 3D mein asli roshni aur saaya banata hai.']
+     ['🏢','Har manzil ka <b>alag 3D</b> — 3D bar mein <b>Ground / 1st / 2nd</b> buttons se switch karein.'],
+     ['🛋️','Asli <b>walls (9"/4.5"), room floors + furniture</b> (bed, sofa, kitchen, stairs, car) 3D mein.'],
+     ['🔄','Orbit se ghumao, Walk se andar chalo, ☀ Sun se asli roshni aur saaya.']
    ]},
   {icon:'📤', badge:'Feature', title:'Import &amp; <span>Export</span>', urdu:'فائل لوڈ اور محفوظ',
    points:[
@@ -3460,11 +3622,13 @@ const MANUAL_HTML = `
 <div class="m-step"><span class="m-num">3</span><span>Neeche <b>Passive Design Tips</b> khud aati hain (kaunsi diwar par kam khidki, ventilation kahan).</span></div>
 
 <h3>🏠 6 · Requirements + Floor Plan</h3>
-<div class="m-step"><span class="m-num">1</span><span>Right sidebar mein <b>"Requirements Checklist"</b> mein jo chahiye tick karein (Bedroom, Bath, Kitchen...).</span></div>
-<div class="m-step"><span class="m-num">2</span><span>Har item ka <b>+/−</b> se tadaad set karein. Aur dayein taraf <b>Floor selector (G / 1st / 2nd)</b> se batayein ke yeh kis floor par chahiye. <span class="m-urdu">مثلاً: Kitchen → G, Drawing Room → 1st</span></span></div>
-<div class="m-step"><span class="m-num">3</span><span>Floors (Single/Double/Triple) chunein → <b>⚡ Generate Floor Plan</b> dabayein.</span></div>
-<div class="m-step"><span class="m-num">4</span><span>Naqsha ban jayega. Ab <b>rooms ko mouse se drag</b> kar ke jagah badal sakte hain — jaise Kitchen ko corner mein le jayein ya Bath ko bedroom ke paas.</span></div>
-<div class="m-tip"><b>Tip:</b> Stairs ko kisi bhi ek floor par assign karein — multi-story mein app khud dono floors par rakh dega. Rooms drag karne se pehle floor tab (Ground/First) switch kar ke us floor ke rooms arrange karein.</div>
+<div class="m-step"><span class="m-num">1</span><span>Right sidebar <b>Step 2 (Requirements)</b> mein jo chahiye tick karein (Bedroom, Bath, Kitchen, Lounge...).</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Item ke saamne <b>▾ button</b> dabate hi ek panel khulta hai: <b>Per-floor tadaad</b> (Ground / 1st / 2nd — jitni manzilein select ki hongi utne hi counter dikhenge) aur <b>Room Size (W × H ft)</b>. Size khali chhorein to <b>auto</b>, ya khud dein. <span class="m-urdu">مثلاً Master Bedroom 16×18 فٹ، پہلی منزل پر 2 بیڈروم۔</span></span></div>
+<div class="m-step"><span class="m-num">3</span><span>Neeche <b>Floors (Single / Double / Triple)</b> chunein. <b>🚪 Central Corridor</b> checkbox on rakhein to rooms ek passage (طرقہ تقسیم) ke dono taraf arrange honge (asli ghar jaisa). Phir <b>⚡ Generate Floor Plan</b> dabayein.</span></div>
+<div class="m-step"><span class="m-num">4</span><span>Naqsha ab <b>professional blueprint</b> banta hai: <b>9" outer walls</b>, <b>4.5" partitions</b>, <b>dimension lines (arrows)</b>, <b>doors (swing arc)</b>, <b>windows</b>, aur <b>furniture</b> (bed, sofa, kitchen, WC, stairs, car). Saath hi <b>North arrow, scale bar, total-area title, per-room area (m²)</b> aur chaaron <b>façade labels</b>.</span></div>
+<div class="m-step"><span class="m-num">5</span><span><b>Rooms ko mouse se drag</b> kar ke jagah badal sakte hain. Multi-story mein upar <b>floor tab (Ground / First / Second)</b> switch kar ke us floor ke rooms alag arrange karein.</span></div>
+<div class="m-tip"><b>Size Tip:</b> Jis room ka W×H diya hoga, naqshe par uska size <b>amber ✓</b> ke saath dikhega aur usko zyada jagah milegi — baaki rooms auto adjust ho jate hain.</div>
+<div class="m-tip"><b>Stairs:</b> kisi ek floor par tick karein — multi-story mein app khud har manzil par rakh deta hai.</div>
 
 <h3>📊 7 · BOM &amp; Cost Estimator</h3>
 <div class="m-step"><span class="m-num">1</span><span>Upar <b>"BOM &amp; Cost"</b> button dabayein.</span></div>
@@ -3474,8 +3638,9 @@ const MANUAL_HTML = `
 <div class="m-tip"><b>Tip:</b> Qty fields mein jab tak aap khud kuch na likhein, wo canvas ki walls se auto-calculate hoti hain. Ek baar aap ne type kiya to aapki manual entry priority rehti hai.</div>
 
 <h3>🧊 8 · 3D View</h3>
-<div class="m-step"><span class="m-num">1</span><span>Upar <b>"3D View"</b> dabayein. Aapki 2D walls 3D deewarein ban jayengi.</span></div>
-<div class="m-step"><span class="m-num">2</span><span><b>Orbit</b>: mouse drag se ghumao, scroll se zoom. <b>Walk</b>: W/A/S/D se andar chalo.</span></div>
+<div class="m-step"><span class="m-num">1</span><span>Upar <b>"3D View"</b> dabayein. Generated floor plan ke rooms — <b>9" outer walls, 4.5" partitions, coloured floors aur furniture</b> — 3D deewaron mein ban jate hain.</span></div>
+<div class="m-step"><span class="m-num">2</span><span>Multi-story mein 3D bar par <b>Ground / 1st / 2nd</b> buttons aate hain — har manzil ka <b>alag 3D</b> dekhein (jis floor par jo rooms assign kiye, wahi dikhenge).</span></div>
+<div class="m-step"><span class="m-num">3</span><span><b>Orbit</b>: drag se ghumao, scroll se zoom. <b>Walk</b>: W/A/S/D se andar chalo. <b>☀ Sun</b>: Simulator ka sooraj asli saaya banata hai.</span></div>
 <div class="m-tip"><b>Note:</b> 3D pehli dafa internet chahta hai (engine load hoti hai). Uske baad chal jata hai.</div>
 
 <h3>📤 9 · Import / Export</h3>
