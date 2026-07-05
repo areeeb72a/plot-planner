@@ -819,8 +819,17 @@ input[type=range]::-moz-range-thumb{
         <div class="acc-head"><span>📐 Scale & Units · اسکیل</span><span class="acc-chev">▾</span></div>
         <div class="acc-body">
           <div style="display:flex;gap:8px">
-            <div class="seg" id="segScale" style="flex:1"><button data-v="100" class="on">1:100</button><button data-v="50">1:50</button></div>
+            <div class="seg" id="segScale" style="flex:1"><button data-v="100" class="on">1:100</button><button data-v="50">1:50</button><button data-v="200">1:200</button></div>
             <div class="seg" id="segUnit" style="flex:1"><button data-v="ft" class="on">Feet</button><button data-v="m">Meters</button></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <div class="seg" id="segLineW" style="flex:1"><button data-v="1">0.18mm</button><button data-v="2" class="on">0.35mm</button><button data-v="3.5">0.70mm</button></div>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Color
+              <input type="color" id="lineColor" value="#5aa2ff" style="width:30px;height:24px;border:1px solid var(--line);border-radius:5px;background:transparent;cursor:pointer;padding:0"></label>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <span style="font-size:11px;color:var(--muted)">Grid</span>
+            <div class="seg" id="segGrid" style="flex:1"><button data-v="2">Coarse</button><button data-v="5" class="on">Normal</button><button data-v="10">Fine</button></div>
           </div>
         </div>
       </div>
@@ -879,6 +888,10 @@ input[type=range]::-moz-range-thumb{
           <label style="display:flex;align-items:center;gap:8px;margin:10px 2px 4px;cursor:pointer;font-size:12px;color:var(--text)">
             <input type="checkbox" id="corrToggle" checked>
             <span>🚪 Central Corridor · طرقہ تقسیم <span style="color:var(--muted);font-size:10.5px">(rooms ko passage se joro)</span></span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;margin:4px 2px 4px;cursor:pointer;font-size:12px;color:var(--text)">
+            <input type="checkbox" id="villaToggle">
+            <span>🏛 Compound Villa · خلیجی ولا <span style="color:var(--muted);font-size:10.5px">(boundary + garden + parking)</span></span>
           </label>
           <button class="btn-gen" id="btnGen" disabled>⚡ Generate Floor Plan · نقشہ بنائیں</button>
         </div>
@@ -1162,14 +1175,16 @@ const state = {
   pending: null,         // line start point while drawing
   polyPts: [],           // points while measuring area
   mouse: [0,0],          // snapped mouse (px)
-  rawMouse: [0,0]
+  rawMouse: [0,0],
+  lineW: 2,              // drawn-line weight (px)  0.18/0.35/0.70 mm ≈ 1/2/3.5
+  lineColor: '#5aa2ff'   // drawn-line colour
 };
 
 /* grid geometry:
    one MAJOR cell = 1 unit (ft or m) of real length.
    pixels per unit depends on scale → 1:50 is "zoomed in" 2× vs 1:100 */
-const GRID_MINOR = 5;                       // minor cells inside a major cell
-function pxPerUnit(){ return state.scale === 50 ? 48 : 24; }
+let GRID_MINOR = 5;                          // minor cells inside a major cell (adjustable)
+function pxPerUnit(){ return state.scale === 50 ? 48 : state.scale === 200 ? 12 : 24; }
 function minorStep(){ return pxPerUnit() / GRID_MINOR; }
 
 /* ============================================================
@@ -1256,9 +1271,9 @@ function lineLabel(a, b, px, color){
   ctx.restore();
 }
 
-function drawLineSeg(a, b, color, dash){
+function drawLineSeg(a, b, color, dash, w){
   ctx.save();
-  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.strokeStyle = color; ctx.lineWidth = w || 2;
   ctx.setLineDash(dash || []);
   ctx.shadowColor = color; ctx.shadowBlur = 6;
   ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
@@ -1291,7 +1306,7 @@ function draw(){
 
   /* committed lines */
   state.lines.forEach(l => {
-    drawLineSeg(l.a, l.b, '#5aa2ff');
+    drawLineSeg(l.a, l.b, state.lineColor, null, state.lineW);
     lineLabel(l.a, l.b, dist(l.a, l.b), '#f0b444');
   });
 
@@ -1427,6 +1442,9 @@ function seg(id, cb){
   }));
 }
 seg('segScale', v=>{ state.scale = +v; syncStats(); draw(); toast('Scale 1:' + v + ' — grid rescaled'); });
+seg('segLineW', v=>{ state.lineW = +v; draw(); });
+seg('segGrid', v=>{ GRID_MINOR = +v; syncStats(); draw(); toast('Grid: ' + (v==='10'?'Fine':v==='2'?'Coarse':'Normal')); });
+$('lineColor')?.addEventListener('input', e=>{ state.lineColor = e.target.value; draw(); });
 seg('segUnit',  v=>{ state.unit = v; syncStats(); draw(); });
 
 /* ============================================================
@@ -2192,13 +2210,18 @@ function add3DFurniture(T,g,r,OX,OZ,WH){
     const m=new T.Mesh(new T.BoxGeometry(w,h,d), new T.MeshStandardMaterial({color,roughness:.7}));
     m.position.set(cx+ox,y,cz+oz); m.castShadow=true; m.receiveShadow=true; g.add(m);
   };
-  if(r.id==='bed'){
+  if(r.id==='bed'||r.id==='driver'||r.id==='maid'){
     box(Math.min(r.w*0.62,7.5),1.7,Math.min(r.h*0.72,7),1.0,0x9db4d4);
     box(Math.min(r.w*0.55,6),0.5,1.2,1.9,0xcdd9ec,0,-Math.min(r.h*0.28,2.4)); // pillows
-  } else if(r.id==='lounge'||r.id==='draw'){
-    box(Math.min(r.w*0.72,10),1.6,2.2,1.0,0x7c8fb0,0,r.h*0.26);               // sofa
-    box(2.6,1.0,1.6,0.7,0x8a6a4a,0,-r.h*0.02);                                 // table
-    if(r.id==='draw'){ box(4.2,1.2,2.6,0.9,0x6a7690,0,-r.h*0.3); }            // dining
+  } else if(r.id==='lounge'||r.id==='draw'||r.id==='majlis'||r.id==='majlisF'||r.id==='guest'){
+    box(r.w-1.2,1.4,1.6,0.9,0x7c8fb0,0,-r.h/2+1);   // top sofa run
+    box(r.w-1.2,1.4,1.6,0.9,0x7c8fb0,0,r.h/2-1);    // bottom sofa run
+    if(r.w>10){ box(1.6,1.4,r.h-4,0.9,0x7c8fb0,-r.w/2+1,0); box(1.6,1.4,r.h-4,0.9,0x7c8fb0,r.w/2-1,0); }
+    if(r.id==='draw'||r.id==='guest') box(3,1.0,2,0.7,0x8a6a4a);          // centre table
+  } else if(r.id==='dining'){
+    box(Math.min(r.w*0.55,8),1.4,Math.min(r.h*0.45,4),1.1,0x8a6a4a);      // dining table
+  } else if(r.id==='musalla'){
+    box(r.w*0.5,0.25,r.h*0.5,0.5,0x4a8a5a);                                // prayer mat
   } else if(r.id==='kitchen'){
     box(r.w*0.82,2.4,1.5,1.4,0xb0846a,0,-r.h*0.34);                           // counter
   } else if(r.id==='bath'){
@@ -2318,15 +2341,17 @@ function populateModel(){
 
   /* FLOOR PLAN → 3D: render the SELECTED floor with real walls + furniture */
   if(floorPlan.floors && floorPlan.floors.length){
-    const ROOM3D_COL={open:0x2f7d4f,porch:0x8a6a2a,bed:0x3f5f8f,bath:0x4a86a0,kitchen:0xa5622f,draw:0x6d4a8f,lounge:0x466088,store:0x5a6478,laundry:0x4a7080,stair:0x8a7030,terrace:0x2f7d4f,corridor:0x3a4356};
+    const ROOM3D_COL={open:0x2f7d4f,porch:0x8a6a2a,bed:0x3f5f8f,bath:0x4a86a0,kitchen:0xa5622f,draw:0x6d4a8f,lounge:0x466088,store:0x5a6478,laundry:0x4a7080,stair:0x8a7030,terrace:0x2f7d4f,corridor:0x3a4356,majlis:0x8a6a2a,majlisF:0x8a4a6a,guest:0x6d4a8f,dining:0x4a7a52,wetkit:0x8a5a3a,musalla:0x2f7d4f,driver:0x50586a,maid:0x50586a,garden:0x2f6d3f,parking:0x4a5266,driveway:0x4a5266};
+    const OUTDOOR3D=new Set(['garden','parking','driveway']);
     const A=engInput('eA'),B=engInput('eB'),C=engInput('eC'),D=engInput('eD');
     let fpW,fpH;
     if(A&&B&&C&&D){fpW=(A+C)/2;fpH=(B+D)/2;} else {const s=Math.sqrt(activeArea.sqft||900);fpW=s;fpH=s;}
     const fv=Math.min(V3D.floorView||0, floorPlan.floors.length-1);
     const fl=floorPlan.floors[fv];
     const OX=fpW/2, OZ=fpH/2, WH=WALL_H_FT, eps=0.06;
+    const bld=fl.building||{x:0,y:0,w:fpW,h:fpH};
 
-    /* solid base slab for this floor */
+    /* solid base slab (whole compound) */
     const base=new T.Mesh(new T.BoxGeometry(fpW,0.5,fpH),
       new T.MeshStandardMaterial({color:0x161f33, roughness:1}));
     base.position.set(0,-0.25,0); base.receiveShadow=true; g.add(base);
@@ -2338,14 +2363,15 @@ function populateModel(){
         new T.MeshStandardMaterial({color:col, roughness:.85}));
       slab.position.set(r.x+r.w/2-OX,0.2,r.y+r.h/2-OZ);
       slab.receiveShadow=true; g.add(slab);
-      add3DFurniture(T,g,r,OX,OZ,WH);
+      if(!OUTDOOR3D.has(r.id)) add3DFurniture(T,g,r,OX,OZ,WH);
     });
 
     /* ---- interior partition walls (deduplicated, drawn once) ---- */
     const seen=new Set(), partMat=new T.MeshStandardMaterial({color:0xcdd6e4,roughness:.85});
-    const onBoundary=(p1,p2)=>(Math.abs(p1[0])<eps&&Math.abs(p2[0])<eps)||(Math.abs(p1[0]-fpW)<eps&&Math.abs(p2[0]-fpW)<eps)
-      ||(Math.abs(p1[1])<eps&&Math.abs(p2[1])<eps)||(Math.abs(p1[1]-fpH)<eps&&Math.abs(p2[1]-fpH)<eps);
+    const onBoundary=(p1,p2)=>(Math.abs(p1[0]-bld.x)<eps&&Math.abs(p2[0]-bld.x)<eps)||(Math.abs(p1[0]-(bld.x+bld.w))<eps&&Math.abs(p2[0]-(bld.x+bld.w))<eps)
+      ||(Math.abs(p1[1]-bld.y)<eps&&Math.abs(p2[1]-bld.y)<eps)||(Math.abs(p1[1]-(bld.y+bld.h))<eps&&Math.abs(p2[1]-(bld.y+bld.h))<eps);
     fl.placed.forEach(r=>{
+      if(OUTDOOR3D.has(r.id)) return;
       const c=[[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]];
       for(let i=0;i<4;i++){
         const p1=c[i], p2=c[(i+1)%4];
@@ -2360,14 +2386,25 @@ function populateModel(){
         w.castShadow=true; w.receiveShadow=true; g.add(w);
       }
     });
-    /* ---- thick outer boundary walls (full height) ---- */
+    /* ---- thick outer BUILDING walls (full height) ---- */
     const OWt=0.75, wallMatO=new T.MeshStandardMaterial({color:0xeaeff7,roughness:.8});
-    [[0,0,fpW,0],[fpW,0,fpW,fpH],[fpW,fpH,0,fpH],[0,fpH,0,0]].forEach(([x1,y1,x2,y2])=>{
+    [[bld.x,bld.y,bld.x+bld.w,bld.y],[bld.x+bld.w,bld.y,bld.x+bld.w,bld.y+bld.h],
+     [bld.x+bld.w,bld.y+bld.h,bld.x,bld.y+bld.h],[bld.x,bld.y+bld.h,bld.x,bld.y]].forEach(([x1,y1,x2,y2])=>{
       const ax=x1-OX,az=y1-OZ,bx=x2-OX,bz=y2-OZ, len=Math.hypot(bx-ax,bz-az);
       const w=new T.Mesh(new T.BoxGeometry(len+OWt,WH,OWt),wallMatO);
       w.position.set((ax+bx)/2,WH/2,(az+bz)/2); w.rotation.y=-Math.atan2(bz-az,bx-ax);
       w.castShadow=true; w.receiveShadow=true; g.add(w);
     });
+    /* ---- low compound boundary wall (villa only) ---- */
+    if(fl.building){
+      const cwMat=new T.MeshStandardMaterial({color:0x9aa7bd,roughness:.9}), cwH=WH*0.5, cwT=0.5;
+      [[0,0,fpW,0],[fpW,0,fpW,fpH],[fpW,fpH,0,fpH],[0,fpH,0,0]].forEach(([x1,y1,x2,y2])=>{
+        const ax=x1-OX,az=y1-OZ,bx=x2-OX,bz=y2-OZ, len=Math.hypot(bx-ax,bz-az);
+        const wm=new T.Mesh(new T.BoxGeometry(len+cwT,cwH,cwT),cwMat);
+        wm.position.set((ax+bx)/2,cwH/2,(az+bz)/2); wm.rotation.y=-Math.atan2(bz-az,bx-ax);
+        wm.castShadow=true; g.add(wm);
+      });
+    }
   }
 
   /* neighbour blocks (from survey) as grey masses */
@@ -2918,15 +2955,30 @@ const REQS = [
   {id:'stair',  en:'Staircase',           ur:'سیڑھیاں',            type:'opt', opts:['Inside','Outside'], def:'Inside'},
   {id:'store',  en:'Store Room',          ur:'اسٹور روم',          type:'count', def:1},
   {id:'laundry',en:'Laundry Area',        ur:'لانڈری',             type:'flag'},
-  {id:'open',   en:'Open Space / Lawn',   ur:'صحن / لان',          type:'opt', opts:['Front','Back','Side'], def:'Front'}
+  {id:'open',   en:'Open Space / Lawn',   ur:'صحن / لان',          type:'opt', opts:['Front','Back','Side'], def:'Front'},
+  {type:'divider', en:'Gulf / Villa Rooms', ur:'خلیجی ولا (اختیاری)'},
+  {id:'majlis', en:"Men's Majlis",         ur:'مجلس رجال',          type:'count'},
+  {id:'majlisF',en:'Ladies Majlis',        ur:'مجلس نساء',          type:'count'},
+  {id:'guest',  en:'Guest Hall',           ur:'گیسٹ ہال',           type:'count'},
+  {id:'dining', en:'Formal Dining',        ur:'ڈائننگ',             type:'count'},
+  {id:'wetkit', en:'Wet / Dirty Kitchen',  ur:'ویٹ کچن',            type:'count'},
+  {id:'musalla',en:'Prayer Room · Musalla',ur:'مصلیٰ',              type:'count'},
+  {id:'driver', en:'Driver Room',          ur:'ڈرائیور روم',        type:'count'},
+  {id:'maid',   en:'Maid Room',            ur:'ماسی روم',           type:'count'}
 ];
 const reqState = {};
-const floorPlan = { floors:null, view:0, count:1, corridor:true };
+const floorPlan = { floors:null, view:0, count:1, corridor:true, villa:false };
 const FLOOR_NAMES=[['Ground','گراؤنڈ'],['1st Floor','پہلی منزل'],['2nd Floor','دوسری منزل']];
 
 (function buildReqRows(){
   const box=$('reqList'); if(!box) return; box.innerHTML='';
   REQS.forEach(r=>{
+    if(r.type==='divider'){
+      const d=document.createElement('div'); d.className='req-divider';
+      d.style.cssText='margin:9px 2px 3px;padding-top:8px;border-top:1px solid var(--line);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;align-items:center';
+      d.innerHTML='<span>🏛 '+r.en+'</span><span style="font-size:11px;color:var(--muted)">'+r.ur+'</span>';
+      box.appendChild(d); return;
+    }
     /* per-floor counts: floorQty[0]=ground, [1]=first, [2]=second ; size {w,h} in ft (0 = auto) */
     const def = ['bed','bath','kitchen','lounge','porch','open'].includes(r.id);
     reqState[r.id]={on:def, count:r.def||1, opt:r.def, floorQty:[r.def||1, 0, 0], size:{w:0,h:0}};
@@ -3030,11 +3082,19 @@ function roomList(fl){
   const push=(id,nm,dflt)=>{ const t=SZ(id,dflt); add(id,nm,t.w,t.lbl); };
 
   for(let i=0;i<fq('draw');i++)   push('draw','Drawing ڈرائنگ',1.1);
+  for(let i=0;i<fq('majlis');i++) push('majlis',"Men's Majlis مجلس",1.3);
+  for(let i=0;i<fq('guest');i++)  push('guest','Guest Hall گیسٹ',1.15);
+  for(let i=0;i<fq('majlisF');i++)push('majlisF','Ladies Majlis مجلس نساء',1.1);
   for(let i=0;i<fq('lounge');i++) push('lounge','TV Lounge لاؤنج',1.35);
+  for(let i=0;i<fq('dining');i++) push('dining','Dining ڈائننگ',0.95);
   for(let i=0;i<fq('kitchen');i++)push('kitchen','Kitchen کچن',0.75);
+  for(let i=0;i<fq('wetkit');i++) push('wetkit','Wet Kitchen ویٹ کچن',0.55);
   for(let i=0;i<fq('bed');i++){ const t=SZ('bed',1.0); add('bed','Bedroom '+(i+1),t.w,t.lbl); }
+  for(let i=0;i<fq('musalla');i++)push('musalla','Musalla مصلیٰ',0.5);
   for(let i=0;i<fq('bath');i++)   push('bath','Bath 🚿',0.34);
   for(let i=0;i<fq('store');i++)  push('store','Store اسٹور',0.4);
+  for(let i=0;i<fq('driver');i++) push('driver','Driver ڈرائیور',0.42);
+  for(let i=0;i<fq('maid');i++)   push('maid','Maid ماسی',0.42);
   if(reqState.laundry.on && fl===0) add('laundry','Laundry',0.3);
   /* stairs: on every floor if multi-story */
   if(reqState.stair.on && floorPlan.count>1) add('stair','Stairs سیڑھیاں',0.42);
@@ -3090,6 +3150,24 @@ function genFloorPlan(){
   const floors=[];
   for(let fl=0; fl<floorPlan.count; fl++){
     let x=0,y=0,w=W,h=H; const placed=[];
+    if(floorPlan.villa){
+      /* compound villa: building inset from plot; garden + parking around it */
+      const frontSb=Math.max(12,Math.min(H*0.20,30));
+      const sideSb =Math.max(3, Math.min(W*0.07,10));
+      const rearSb =Math.max(5, Math.min(H*0.09,15));
+      const building={x:sideSb, y:frontSb, w:W-2*sideSb, h:H-frontSb-rearSb};
+      if(fl===0){
+        const parkW=Math.max(10,Math.min(W*0.42,22));
+        placed.push(room('parking','Car Parking پارکنگ', 0,0, parkW, frontSb));
+        placed.push(room('garden','Front Garden باغ', parkW,0, W-parkW, frontSb));
+        placed.push(room('garden','Garden', 0,frontSb, sideSb, building.h));
+        placed.push(room('garden','Garden', W-sideSb,frontSb, sideSb, building.h));
+        placed.push(room('garden','Rear Garden پچھلا باغ', 0,H-rearSb, W, rearSb));
+      }
+      placed.push(...packWithCorridor(building.x,building.y,building.w,building.h,roomList(fl)));
+      floors.push({placed,W,H,building});
+      continue;
+    }
     if(reqState.open.on && fl===0){
       const dpt=Math.max(6,H*0.14), side=reqState.open.opt;
       if(side==='Front'){ placed.push(room('open','Lawn صحن',x,y,w,dpt)); y+=dpt; h-=dpt; }
@@ -3115,6 +3193,7 @@ function genFloorPlan(){
 }
 $('btnGen').addEventListener('click', genFloorPlan);
 $('corrToggle')?.addEventListener('change',e=>{ floorPlan.corridor=e.target.checked; if(floorPlan.floors) genFloorPlan(); });
+$('villaToggle')?.addEventListener('change',e=>{ floorPlan.villa=e.target.checked; if(floorPlan.floors) genFloorPlan(); });
 
 function buildFloorTabs(){
   const el=$('floorTabs'); if(!el) return;
@@ -3129,8 +3208,8 @@ function buildFloorTabs(){
 }
 
 /* room colours */
-const RCOL={open:'rgba(74,222,128,.13)',porch:'rgba(240,180,68,.14)',bed:'rgba(90,162,255,.12)',bath:'rgba(125,211,252,.14)',kitchen:'rgba(251,146,60,.13)',draw:'rgba(192,132,252,.13)',lounge:'rgba(90,162,255,.09)',store:'rgba(148,163,184,.12)',laundry:'rgba(125,211,252,.10)',stair:'rgba(240,180,68,.10)',terrace:'rgba(74,222,128,.10)',corridor:'rgba(148,163,184,.07)'};
-const RSTK={open:'#4ade80',porch:'#f0b444',bed:'#5aa2ff',bath:'#7dd3fc',kitchen:'#fb923c',draw:'#c084fc',lounge:'#5aa2ff',store:'#94a3b8',laundry:'#7dd3fc',stair:'#f0b444',terrace:'#4ade80',corridor:'#94a3b8'};
+const RCOL={open:'rgba(74,222,128,.13)',porch:'rgba(240,180,68,.14)',bed:'rgba(90,162,255,.12)',bath:'rgba(125,211,252,.14)',kitchen:'rgba(251,146,60,.13)',draw:'rgba(192,132,252,.13)',lounge:'rgba(90,162,255,.09)',store:'rgba(148,163,184,.12)',laundry:'rgba(125,211,252,.10)',stair:'rgba(240,180,68,.10)',terrace:'rgba(74,222,128,.10)',corridor:'rgba(148,163,184,.07)',majlis:'rgba(217,164,65,.16)',majlisF:'rgba(236,120,180,.14)',guest:'rgba(192,132,252,.15)',dining:'rgba(129,199,132,.13)',wetkit:'rgba(251,146,60,.10)',musalla:'rgba(74,222,128,.16)',driver:'rgba(148,163,184,.13)',maid:'rgba(148,163,184,.13)'};
+const RSTK={open:'#4ade80',porch:'#f0b444',bed:'#5aa2ff',bath:'#7dd3fc',kitchen:'#fb923c',draw:'#c084fc',lounge:'#5aa2ff',store:'#94a3b8',laundry:'#7dd3fc',stair:'#f0b444',terrace:'#4ade80',corridor:'#94a3b8',majlis:'#d9a441',majlisF:'#ec78b4',guest:'#c084fc',dining:'#81c784',wetkit:'#fb923c',musalla:'#4ade80',driver:'#94a3b8',maid:'#94a3b8'};
 
 /* ============================================================
    PROFESSIONAL BLUEPRINT RENDERER  (AutoCAD / Sweet Home 3D style)
@@ -3148,7 +3227,11 @@ const RLABEL = {
   bed:['Bedroom','بیڈ روم'], bath:['Bathroom','واش روم'], kitchen:['Kitchen','کچن'],
   draw:['Drawing Room','ڈرائنگ روم'], lounge:['TV Lounge','ٹی وی لاؤنج'], store:['Store','اسٹور'],
   laundry:['Laundry','لانڈری'], stair:['Staircase','سیڑھیاں'], porch:['Car Porch','پورچ'],
-  open:['Lawn / Open','صحن'], terrace:['Terrace','ٹیرس'], corridor:['Corridor','طرقہ تقسیم']
+  open:['Lawn / Open','صحن'], terrace:['Terrace','ٹیرس'], corridor:['Corridor','طرقہ تقسیم'],
+  majlis:["Men's Majlis",'مجلس رجال'], majlisF:['Ladies Majlis','مجلس نساء'], guest:['Guest Hall','گیسٹ ہال'],
+  dining:['Formal Dining','ڈائننگ'], wetkit:['Wet Kitchen','ویٹ کچن'], musalla:['Musalla','مصلیٰ'],
+  driver:['Driver Room','ڈرائیور'], maid:['Maid Room','ماسی روم'],
+  garden:['Garden','باغ'], parking:['Car Parking','پارکنگ'], driveway:['Driveway','راستہ']
 };
 /* ---- low-level primitives ---- */
 function _head(x,y,ang,s,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,y);
@@ -3193,22 +3276,30 @@ function drawFurniture(r,fx,fy,fw,fh){
   ctx.save(); ctx.strokeStyle=BP.furn; ctx.fillStyle=BP.furnFill; ctx.lineWidth=1; ctx.lineJoin='round';
   const cx=fx+fw/2, cy=fy+fh/2, id=r.id;
   const bedI = id==='bed' && /(^|\D)1(\D|$)/.test(r.nm);
-  if(id==='bed'){
+  if(id==='bed'||id==='driver'||id==='maid'){
     const bw=Math.min(fw*0.62, fh*0.9), bh=Math.min(fh*0.7, fw*0.9);
     const bx=cx-bw/2, by=cy-bh/2;
     _rr(bx,by,bw,bh,4); ctx.fill(); ctx.stroke();                       // mattress
     ctx.beginPath(); ctx.moveTo(bx,by+bh*0.24); ctx.lineTo(bx+bw,by+bh*0.24); ctx.stroke(); // headboard line
     _rr(bx+bw*0.12,by+bh*0.05,bw*0.32,bh*0.15,3); ctx.stroke();          // pillow L
     _rr(bx+bw*0.56,by+bh*0.05,bw*0.32,bh*0.15,3); ctx.stroke();          // pillow R
-  } else if(id==='lounge'||id==='draw'){
-    const sw=fw*0.7, sh=Math.min(fh*0.26,26), sx=cx-sw/2, sy=fy+fh-sh-6;
-    _rr(sx,sy,sw,sh,5); ctx.fill(); ctx.stroke();                        // sofa base
-    _rr(sx,sy-6,sw,10,4); ctx.stroke();                                  // backrest
-    ctx.beginPath(); ctx.moveTo(sx+sw/3,sy);ctx.lineTo(sx+sw/3,sy+sh);
-    ctx.moveTo(sx+2*sw/3,sy);ctx.lineTo(sx+2*sw/3,sy+sh); ctx.stroke();  // cushions
-    _rr(cx-16,sy-30,32,18,3); ctx.stroke();                             // coffee table
-    if(id==='draw' && fw>90){ ctx.strokeRect(cx-22,fy+8,44,22);         // dining table
-      [[-30,0],[30,0],[-30,22],[30,22]].forEach(([dx,dy])=>ctx.strokeRect(cx-4+dx,fy+8+dy-2,8,8)); }
+  } else if(id==='lounge'||id==='draw'||id==='majlis'||id==='majlisF'||id==='guest'){
+    /* perimeter majlis-style seating: sofas along the walls */
+    const t=Math.min(fh*0.2,18);
+    _rr(fx+5,fy+5,fw-10,t,5); ctx.stroke();                              // top sofa run
+    _rr(fx+5,fy+fh-t-5,fw-10,t,5); ctx.stroke();                         // bottom sofa run
+    if(fw>90){ _rr(fx+5,fy+t+8,t*0.8,fh-2*t-26,5); ctx.stroke();         // left sofa
+               _rr(fx+fw-t*0.8-5,fy+t+8,t*0.8,fh-2*t-26,5); ctx.stroke(); }
+    if((id==='draw'||id==='guest') && fw>90 && fh>90){ _rr(cx-18,cy-11,36,22,3); ctx.stroke(); } // centre table
+  } else if(id==='dining'){
+    const tw=Math.min(fw*0.5,fh*1.2), th=Math.min(fh*0.42,tw*0.6);
+    ctx.strokeRect(cx-tw/2,cy-th/2,tw,th);                               // dining table
+    const nx=Math.max(2,Math.floor(tw/22));
+    for(let i=0;i<nx;i++){ const gx=cx-tw/2+ (i+0.5)*tw/nx;
+      ctx.strokeRect(gx-4,cy-th/2-9,8,7); ctx.strokeRect(gx-4,cy+th/2+2,8,7); }
+  } else if(id==='musalla'){
+    _rr(cx-fw*0.28,cy-fh*0.32,fw*0.56,fh*0.64,3); ctx.stroke();          // prayer mat
+    ctx.beginPath(); ctx.arc(cx,cy-fh*0.32,6,Math.PI,0); ctx.stroke();   // mihrab arch (qibla)
   } else if(id==='kitchen'){
     ctx.lineWidth=1.2;
     ctx.beginPath(); ctx.moveTo(fx+5,fy+14); ctx.lineTo(fx+fw-6,fy+14); ctx.stroke();      // counter top run
@@ -3260,16 +3351,54 @@ function drawFloorPlan(){
   const PX=ft=>ox+ft*sc, PY=ft=>oy+ft*sc;
   const bx0=PX(0), by0=PY(0), bW=fl.W*sc, bH=fl.H*sc;
 
-  /* soft drop shadow under the building */
-  ctx.save(); ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=18; ctx.shadowOffsetY=6;
-  ctx.fillStyle=BP.poche; ctx.fillRect(bx0,by0,bW,bH); ctx.restore();
+  /* ---- villa / compound mode setup ---- */
+  const OUTDOOR = (window._OUTDOOR || (window._OUTDOOR=new Set(['garden','parking','driveway'])));
+  const villa = !!fl.building;
+  const bld = fl.building || {x:0,y:0,w:fl.W,h:fl.H};
+  const BX=PX(bld.x), BY=PY(bld.y), BW=bld.w*sc, BH=bld.h*sc;
 
-  /* 1) whole footprint = solid wall poché */
-  ctx.fillStyle=BP.poche; ctx.fillRect(bx0,by0,bW,bH);
+  if(villa){
+    /* compound plot background (paved / sand tone) */
+    ctx.fillStyle='#12233a'; ctx.fillRect(bx0,by0,bW,bH);
+    /* outdoor zones: garden (green) + parking (paved + car) */
+    fl.placed.forEach(r=>{ if(!OUTDOOR.has(r.id)) return;
+      const gx=PX(r.x),gy=PY(r.y),gw=r.w*sc,gh=r.h*sc;
+      if(r.id==='garden'){
+        ctx.fillStyle='rgba(47,125,79,.35)'; ctx.fillRect(gx,gy,gw,gh);
+        ctx.strokeStyle='rgba(74,222,128,.4)'; ctx.lineWidth=1;
+        for(let i=8;i<gw-6;i+=16) for(let j=10;j<gh-6;j+=16){ ctx.beginPath();
+          ctx.moveTo(gx+i,gy+j+5);ctx.lineTo(gx+i-3,gy+j-3);ctx.moveTo(gx+i,gy+j+5);ctx.lineTo(gx+i+3,gy+j-3);ctx.stroke(); }
+      } else { /* parking / driveway */
+        ctx.fillStyle='rgba(90,100,120,.32)'; ctx.fillRect(gx,gy,gw,gh);
+        ctx.strokeStyle='rgba(185,201,234,.18)'; ctx.lineWidth=1;
+        for(let i=12;i<gw;i+=16){ ctx.beginPath(); ctx.moveTo(gx+i,gy+4); ctx.lineTo(gx+i,gy+gh-4); ctx.stroke(); }
+        if(gw>40&&gh>40){ ctx.save(); ctx.strokeStyle='#9fb4d4'; ctx.lineWidth=1.4;
+          _rr(gx+gw/2-Math.min(gw*0.28,16),gy+gh/2-Math.min(gh*0.32,26),Math.min(gw*0.56,32),Math.min(gh*0.64,52),6); ctx.stroke(); ctx.restore(); }
+      }
+      /* zone label */
+      if(gw>46&&gh>22){ const lb=RLABEL[r.id]||[r.nm,'']; ctx.fillStyle='#9fb4d4'; ctx.textAlign='center';
+        ctx.font='600 10px Space Grotesk'; ctx.fillText(lb[0],gx+gw/2,gy+gh/2, gw-6); }
+    });
+    /* compound boundary wall with a front gate gap */
+    ctx.strokeStyle='#8fa3bd'; ctx.lineWidth=3; ctx.setLineDash([]);
+    const gateW=Math.min(bW*0.22,90), gx1=bx0+bW/2-gateW/2, gx2=bx0+bW/2+gateW/2;
+    ctx.beginPath();
+    ctx.moveTo(gx1,by0); ctx.lineTo(bx0,by0); ctx.lineTo(bx0,by0+bH); ctx.lineTo(bx0+bW,by0+bH);
+    ctx.lineTo(bx0+bW,by0); ctx.lineTo(gx2,by0); ctx.stroke();
+    ctx.fillStyle='#5d7291'; ctx.font='600 9px Space Grotesk'; ctx.textAlign='center'; ctx.fillText('⛩ GATE',bx0+bW/2,by0-3);
+  }
+
+  /* soft drop shadow under the building block */
+  ctx.save(); ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=18; ctx.shadowOffsetY=6;
+  ctx.fillStyle=BP.poche; ctx.fillRect(BX,BY,BW,BH); ctx.restore();
+
+  /* 1) building footprint = solid wall poché */
+  ctx.fillStyle=BP.poche; ctx.fillRect(BX,BY,BW,BH);
 
   /* 2) carve each room floor, leaving OW perimeter walls + IW partitions */
   fl.placed.forEach(r=>{
-    const onL=r.x<=eps, onT=r.y<=eps, onR=r.x+r.w>=fl.W-eps, onB=r.y+r.h>=fl.H-eps;
+    if(OUTDOOR.has(r.id)){ r._fr=null; return; }
+    const onL=r.x<=bld.x+eps, onT=r.y<=bld.y+eps, onR=r.x+r.w>=bld.x+bld.w-eps, onB=r.y+r.h>=bld.y+bld.h-eps;
     const L=onL?OW:IW/2, T=onT?OW:IW/2, R=onR?OW:IW/2, B=onB?OW:IW/2;
     const fx=PX(r.x)+L, fy=PY(r.y)+T, fw=r.w*sc-L-R, fh=r.h*sc-T-B;
     r._fr={fx,fy,fw,fh,onL,onT,onR,onB};
@@ -3278,19 +3407,19 @@ function drawFloorPlan(){
     ctx.fillStyle=RCOL[r.id]||'rgba(255,255,255,.05)'; ctx.fillRect(fx,fy,fw,fh); // subtle id tint
   });
 
-  /* 3) crisp wall faces */
-  ctx.strokeStyle=BP.wallEdge; ctx.lineWidth=1.6; ctx.strokeRect(bx0+.8,by0+.8,bW-1.6,bH-1.6);
-  ctx.lineWidth=1; ctx.strokeRect(bx0+OW,by0+OW,bW-2*OW,bH-2*OW);
+  /* 3) crisp wall faces (building block) */
+  ctx.strokeStyle=BP.wallEdge; ctx.lineWidth=1.6; ctx.strokeRect(BX+.8,BY+.8,BW-1.6,BH-1.6);
+  ctx.lineWidth=1; ctx.strokeRect(BX+OW,BY+OW,BW-2*OW,BH-2*OW);
   fl.placed.forEach(r=>{ const f=r._fr; if(f&&f.fw>0&&f.fh>0){
     ctx.strokeStyle='rgba(185,201,234,.55)'; ctx.lineWidth=1; ctx.strokeRect(f.fx-.5,f.fy-.5,f.fw+1,f.fh+1); }});
 
-  /* 4) windows on exterior walls (skip open/lawn) */
+  /* 4) windows on building exterior walls (facing garden) */
   fl.placed.forEach(r=>{ const f=r._fr; if(!f||f.fw<=0||f.fh<=0||r.id==='open'||r.id==='terrace'||r.id==='corridor') return;
     const segH=Math.min(f.fw*0.5, 4*sc), segV=Math.min(f.fh*0.5, 4*sc);
-    if(f.onT && f.fw>44) _window(f.fx+f.fw/2, by0+OW/2, [1,0], OW, segH);
-    if(f.onB && f.fw>44) _window(f.fx+f.fw/2, by0+bH-OW/2, [1,0], OW, segH);
-    if(f.onL && f.fh>44) _window(bx0+OW/2, f.fy+f.fh/2, [0,1], OW, segV);
-    if(f.onR && f.fh>44) _window(bx0+bW-OW/2, f.fy+f.fh/2, [0,1], OW, segV);
+    if(f.onT && f.fw>44) _window(f.fx+f.fw/2, BY+OW/2, [1,0], OW, segH);
+    if(f.onB && f.fw>44) _window(f.fx+f.fw/2, BY+BH-OW/2, [1,0], OW, segH);
+    if(f.onL && f.fh>44) _window(BX+OW/2, f.fy+f.fh/2, [0,1], OW, segV);
+    if(f.onR && f.fh>44) _window(BX+BW-OW/2, f.fy+f.fh/2, [0,1], OW, segV);
   });
 
   /* 5) one door per room on an interior wall (facing plot centre) */
@@ -3629,6 +3758,8 @@ const MANUAL_HTML = `
 <div class="m-step"><span class="m-num">5</span><span><b>Rooms ko mouse se drag</b> kar ke jagah badal sakte hain. Multi-story mein upar <b>floor tab (Ground / First / Second)</b> switch kar ke us floor ke rooms alag arrange karein.</span></div>
 <div class="m-tip"><b>Size Tip:</b> Jis room ka W×H diya hoga, naqshe par uska size <b>amber ✓</b> ke saath dikhega aur usko zyada jagah milegi — baaki rooms auto adjust ho jate hain.</div>
 <div class="m-tip"><b>Stairs:</b> kisi ek floor par tick karein — multi-story mein app khud har manzil par rakh deta hai.</div>
+<div class="m-tip"><b>🏛 Gulf / Villa:</b> Requirements ki list mein neeche "Gulf / Villa Rooms" section hai — <b>Men's Majlis (مجلس), Ladies Majlis (مجلس نساء), Guest Hall, Formal Dining, Wet Kitchen, Musalla, Driver & Maid Room</b>. Tick karke UAE/Gulf villa ka naqsha banayein (majlis mein perimeter seating khud aati hai). Aur "Floors & Generate" mein <b>🏛 Compound Villa</b> toggle on karein to plot ke gird <b>boundary wall + gate</b>, aur building ke around <b>garden + car parking</b> ban jate hain (building andar inset ho jati hai) — bilkul Gulf villa layout.</div>
+<div class="m-tip"><b>✏️ Drafting:</b> "Scale & Units" panel mein ab <b>1:200 scale</b> (bade plots/villas ke liye), <b>Line Weight</b> (0.18/0.35/0.70mm), <b>Line Color</b>, aur <b>Grid density</b> (Coarse/Normal/Fine) bhi hain.</div>
 
 <h3>📊 7 · BOM &amp; Cost Estimator</h3>
 <div class="m-step"><span class="m-num">1</span><span>Upar <b>"BOM &amp; Cost"</b> button dabayein.</span></div>
